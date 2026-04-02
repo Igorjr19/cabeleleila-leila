@@ -3,8 +3,17 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev:backend": "pnpm --filter api start:dev",
+    "build:backend": "pnpm --filter api build",
+    "start:backend": "pnpm --filter api start:prod",
+    "test:backend": "pnpm --filter api test",
+    "lint:backend": "pnpm --filter api lint"
   },
   "keywords": [],
   "author": "",
@@ -20,5 +29,8 @@
     "lint-staged": "^16.4.0",
     "prettier": "3.8.1",
     "typescript-eslint": "^8.57.0"
+  },
+  "lint-staged": {
+    "**/*.{js,ts,json,css,scss,html}": "prettier --write"
   }
 }
