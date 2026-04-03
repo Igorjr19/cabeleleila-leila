@@ -2,6 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './modules/auth/auth.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { EstablishmentModule } from './modules/establishment/establishment.module';
+import { ServicesModule } from './modules/services/services.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -16,6 +21,11 @@ import { AppService } from './app.service';
       autoLoadEntities: true,
       logging: process.env.NODE_ENV === 'development',
     }),
+    AuthModule,
+    UsersModule,
+    EstablishmentModule,
+    ServicesModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
