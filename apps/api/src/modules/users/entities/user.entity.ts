@@ -16,6 +16,9 @@ export class User {
   @Column({ length: 255 })
   name: string;
 
+  @Column({ length: 20, nullable: true })
+  phone?: string;
+
   @OneToMany(() => UserRole, (ur) => ur.user)
   roles: UserRole[];
 
