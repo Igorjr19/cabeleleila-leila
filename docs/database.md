@@ -14,11 +14,13 @@ Establishment ||--o{ Booking : "gerencia"
         string name
         string cnpj
         datetime created_at
+        jsonb config
     }
 
     User {
         uuid id PK
         string email UK
+        string phone
         string password
         string name
     }
@@ -49,4 +51,5 @@ Establishment ||--o{ Booking : "gerencia"
     BookingService {
         uuid booking_id FK
         uuid service_id FK
+        decimal price_at_booking
     }

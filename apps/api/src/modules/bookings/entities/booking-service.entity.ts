@@ -21,6 +21,15 @@ export class BookingService {
   @Column({ name: 'service_id' })
   serviceId: string;
 
+  @Column({
+    name: 'price_at_booking',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) },
+  })
+  priceAtBooking: number;
+
   @ManyToOne(() => Booking, (b) => b.bookingServices)
   @JoinColumn({ name: 'booking_id' })
   booking: Booking;
