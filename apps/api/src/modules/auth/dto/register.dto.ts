@@ -1,3 +1,4 @@
+import { RegisterRequest } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
@@ -7,7 +8,7 @@ import {
   MinLength,
 } from 'class-validator';
 
-export class RegisterDto {
+export class RegisterDto implements RegisterRequest {
   @ApiProperty({ example: 'Maria Silva' })
   @IsString()
   @IsNotEmpty()

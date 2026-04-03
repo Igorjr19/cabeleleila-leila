@@ -1,7 +1,8 @@
+import { UpdateBookingRequest } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsDateString, IsOptional, IsUUID } from 'class-validator';
 
-export class UpdateBookingDto {
+export class UpdateBookingDto implements UpdateBookingRequest {
   @ApiProperty({
     example: '2026-04-17T10:00:00-03:00',
     description: 'Nova data e hora do agendamento em ISO 8601',

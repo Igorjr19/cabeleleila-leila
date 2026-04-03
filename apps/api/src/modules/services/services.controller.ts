@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Role } from '../users/entities/user-role.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
+import { ServiceResponseDto } from './dto/service-response.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { ServicesService } from './services.service';
 
@@ -37,8 +38,15 @@ export class ServicesController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Criar serviço (Admin)' })
-  @ApiResponse({ status: 201, description: 'Serviço criado' })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateServiceDto) {
+  @ApiResponse({
+    status: 201,
+    description: 'Serviço criado',
+    type: ServiceResponseDto,
+  })
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateServiceDto,
+  ): Promise<ServiceResponseDto> {
     return this.servicesService.create(
       user.establishmentId,
       dto.name,
@@ -49,16 +57,29 @@ export class ServicesController {
 
   @Get()
   @ApiOperation({ summary: 'Listar serviços do estabelecimento' })
-  @ApiResponse({ status: 200, description: 'Lista de serviços' })
-  findByEstablishment(@CurrentUser() user: JwtPayload) {
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de serviços',
+    type: [ServiceResponseDto],
+  })
+  findByEstablishment(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ServiceResponseDto[]> {
     return this.servicesService.findByEstablishment(user.establishmentId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Obter detalhes de um serviço' })
-  @ApiResponse({ status: 200, description: 'Dados do serviço' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados do serviço',
+    type: ServiceResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Serviço não encontrado' })
-  findById(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+  findById(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<ServiceResponseDto | null> {
     return this.servicesService.findById(id, user.establishmentId);
   }
 
@@ -66,12 +87,16 @@ export class ServicesController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Atualizar serviço (Admin)' })
-  @ApiResponse({ status: 200, description: 'Serviço atualizado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Serviço atualizado',
+    type: ServiceResponseDto,
+  })
   update(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
     @Body() dto: UpdateServiceDto,
-  ) {
+  ): Promise<ServiceResponseDto> {
     return this.servicesService.update(id, user.establishmentId, dto);
   }
 

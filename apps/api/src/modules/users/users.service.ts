@@ -3,12 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role, UserRole } from './entities/user-role.entity';
 import { User } from './entities/user.entity';
-
-interface CreateUserData {
-  name: string;
-  email: string;
-  password: string;
-}
+import { CreateUserData } from './interfaces/create-user-data.interface';
 
 @Injectable()
 export class UsersService {

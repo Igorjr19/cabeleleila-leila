@@ -1,7 +1,8 @@
+import { LoginRequest } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 
-export class LoginDto {
+export class LoginDto implements LoginRequest {
   @ApiProperty({ example: 'maria@email.com' })
   @IsEmail()
   email: string;

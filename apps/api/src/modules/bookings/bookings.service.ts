@@ -1,3 +1,4 @@
+import { BookingSuggestion, WeeklyStats } from '@cabeleleila/contracts';
 import {
   BadRequestException,
   Injectable,
@@ -12,42 +13,17 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
-import { BookingService } from './entities/booking-service.entity';
+import { BookingService as BookingEntityService } from './entities/booking-service.entity';
 import { Booking, BookingStatus } from './entities/booking.entity';
-
-export interface BookingSuggestion {
-  hasSameWeekBooking: boolean;
-  suggestedDate: string | null;
-  existingBookingId: string | null;
-}
-
-export interface WeeklyStats {
-  weekStart: string;
-  weekEnd: string;
-  totalBookings: number;
-  confirmedBookings: number;
-  cancelledBookings: number;
-  finishedBookings: number;
-  totalRevenue: number;
-}
-
-export interface BookingWithServices extends Booking {
-  services?: {
-    id: string;
-    name: string;
-    price: number;
-    durationMinutes: number;
-  }[];
-  suggestion?: BookingSuggestion;
-}
+import { BookingWithServices } from './interfaces/booking-with-services.interface';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepo: Repository<Booking>,
-    @InjectRepository(BookingService)
-    private readonly bookingServiceRepo: Repository<BookingService>,
+    @InjectRepository(BookingEntityService)
+    private readonly bookingServiceRepo: Repository<BookingEntityService>,
     private readonly servicesService: ServicesService,
     private readonly establishmentService: EstablishmentService,
     private readonly dataSource: DataSource,
@@ -97,7 +73,7 @@ export class BookingsService {
 
       for (const service of services) {
         await manager.save(
-          manager.create(BookingService, {
+          manager.create(BookingEntityService, {
             bookingId: savedBooking.id,
             serviceId: service.id,
             priceAtBooking: service.price,

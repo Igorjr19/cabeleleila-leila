@@ -1,7 +1,8 @@
+import { CreateServiceRequest } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
 
-export class CreateServiceDto {
+export class CreateServiceDto implements CreateServiceRequest {
   @ApiProperty({
     example: 'Corte de cabelo',
     description: 'Nome do serviço',

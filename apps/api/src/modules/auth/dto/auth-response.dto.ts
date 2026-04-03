@@ -1,6 +1,7 @@
+import { AuthResponse, Role, UserProfile } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class UserProfileDto {
+export class UserProfileDto implements UserProfile {
   @ApiProperty({ example: 'uuid' })
   id: string;
 
@@ -11,13 +12,13 @@ export class UserProfileDto {
   email: string;
 
   @ApiProperty({ example: 'CUSTOMER', enum: ['ADMIN', 'CUSTOMER', 'EMPLOYEE'] })
-  role: string;
+  role: Role;
 
   @ApiProperty({ example: 'uuid-do-estabelecimento' })
   establishmentId: string;
 }
 
-export class AuthResponseDto {
+export class AuthResponseDto implements AuthResponse {
   @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
   accessToken: string;
 

@@ -12,7 +12,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 
-interface AuthenticatedRequest extends ExpressRequest {
+export interface AuthenticatedRequest extends ExpressRequest {
   user: JwtPayload;
 }
 
