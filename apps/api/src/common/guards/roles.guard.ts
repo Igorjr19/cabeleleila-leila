@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtPayload } from '../../modules/auth/interfaces/jwt-payload.interface';
 import { Role } from '../../modules/users/entities/user-role.entity';
@@ -17,6 +22,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     const user = context.switchToHttp().getRequest<{ user: JwtPayload }>().user;
-    return requiredRoles.includes(user.role);
+    if (!requiredRoles.includes(user.role)) {
+      throw new ForbiddenException('Acesso negado: permissão insuficiente');
+    }
+    return true;
   }
 }
