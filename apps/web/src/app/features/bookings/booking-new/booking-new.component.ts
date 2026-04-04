@@ -99,9 +99,9 @@ import { SALON_PHONE } from '../../../core/constants/establishment';
               <div
                 class="flex justify-content-between text-sm text-color-secondary"
               >
-                <span>{{ totalDuration() }} min no total</span>
+                <span>{{ totalDuration }} min no total</span>
                 <span class="font-bold text-primary">{{
-                  totalPrice() | brlCurrency
+                  totalPrice | brlCurrency
                 }}</span>
               </div>
             }
@@ -204,10 +204,8 @@ import { SALON_PHONE } from '../../../core/constants/establishment';
               }
               <p-divider />
               <div class="flex justify-content-between font-bold">
-                <span>Total ({{ totalDuration() }} min)</span>
-                <span class="text-primary">{{
-                  totalPrice() | brlCurrency
-                }}</span>
+                <span>Total ({{ totalDuration }} min)</span>
+                <span class="text-primary">{{ totalPrice | brlCurrency }}</span>
               </div>
             </div>
 
@@ -271,12 +269,13 @@ export class BookingNewComponent implements OnInit {
     return addDays(minDays);
   });
 
-  readonly totalPrice = computed(() =>
-    this.selectedServices.reduce((s, sv) => s + sv.price, 0),
-  );
-  readonly totalDuration = computed(() =>
-    this.selectedServices.reduce((s, sv) => s + sv.durationMinutes, 0),
-  );
+  get totalPrice(): number {
+    return this.selectedServices.reduce((s, sv) => s + sv.price, 0);
+  }
+
+  get totalDuration(): number {
+    return this.selectedServices.reduce((s, sv) => s + sv.durationMinutes, 0);
+  }
 
   readonly steps = [
     { label: 'Serviços' },
