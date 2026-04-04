@@ -1,0 +1,72 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import {
+  BookingListFilters,
+  BookingResponse,
+  BookingSuggestion,
+  CreateBookingRequest,
+  UpdateBookingRequest,
+  UpdateBookingStatusRequest,
+  WeeklyPerformanceResponse,
+} from '@cabeleleila/contracts';
+import { environment } from '../../../environments/environment';
+
+export interface BookingWithSuggestion extends BookingResponse {
+  suggestion?: BookingSuggestion;
+}
+
+@Injectable({ providedIn: 'root' })
+export class BookingApiService {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/bookings`;
+
+  createBooking(dto: CreateBookingRequest) {
+    return this.http.post<BookingWithSuggestion>(this.base, dto);
+  }
+
+  getMyBookings(filters?: BookingListFilters) {
+    return this.http.get<BookingResponse[]>(`${this.base}/me`, {
+      params: toParams(filters),
+    });
+  }
+
+  getAllBookings(filters?: BookingListFilters) {
+    return this.http.get<BookingResponse[]>(this.base, {
+      params: toParams(filters),
+    });
+  }
+
+  getBookingById(id: string) {
+    return this.http.get<BookingResponse>(`${this.base}/${id}`);
+  }
+
+  updateBooking(id: string, dto: UpdateBookingRequest) {
+    return this.http.patch<BookingResponse>(`${this.base}/${id}`, dto);
+  }
+
+  updateBookingStatus(id: string, dto: UpdateBookingStatusRequest) {
+    return this.http.patch<BookingResponse>(`${this.base}/${id}/status`, dto);
+  }
+
+  cancelBooking(id: string) {
+    return this.http.put<BookingResponse>(`${this.base}/${id}/cancel`, {});
+  }
+
+  getWeeklyStats(weekOf?: string) {
+    const params = weekOf ? new HttpParams().set('weekOf', weekOf) : undefined;
+    return this.http.get<WeeklyPerformanceResponse>(
+      `${this.base}/dashboard/weekly`,
+      { params },
+    );
+  }
+}
+
+function toParams(filters?: BookingListFilters): HttpParams {
+  let params = new HttpParams();
+  if (!filters) return params;
+  const f = filters as Record<string, string | undefined>;
+  for (const [k, v] of Object.entries(f)) {
+    if (v !== undefined && v !== null) params = params.set(k, v);
+  }
+  return params;
+}

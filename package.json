@@ -13,7 +13,11 @@
     "build:backend": "pnpm --filter api build",
     "start:backend": "pnpm --filter api start:prod",
     "test:backend": "pnpm --filter api test",
-    "lint:backend": "pnpm --filter api lint"
+    "lint:backend": "pnpm --filter api lint",
+    "dev:web": "pnpm --filter web start",
+    "build:web": "pnpm --filter web build",
+    "lint:web": "pnpm --filter web lint",
+    "test:web": "pnpm --filter web test"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +35,9 @@
     "typescript-eslint": "^8.57.0"
   },
   "lint-staged": {
-    "**/*.{js,ts,json,css,scss,html}": "prettier --write"
+    "**/*.{js,ts,json,css,scss,html}": "prettier --write",
+    "apps/api/**/*.ts": [
+      "pnpm --filter api test --passWithNoTests --findRelatedTests"
+    ]
   }
 }
