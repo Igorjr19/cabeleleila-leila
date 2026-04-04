@@ -171,6 +171,19 @@ export class BookingsService {
     ) as Promise<BookingWithServices>;
   }
 
+  private static readonly STATUS_TRANSITIONS: Record<
+    BookingStatus,
+    BookingStatus[]
+  > = {
+    [BookingStatus.PENDING]: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
+    [BookingStatus.CONFIRMED]: [
+      BookingStatus.FINISHED,
+      BookingStatus.CANCELLED,
+    ],
+    [BookingStatus.CANCELLED]: [],
+    [BookingStatus.FINISHED]: [],
+  };
+
   async updateStatus(
     bookingId: string,
     establishmentId: string,
@@ -183,6 +196,14 @@ export class BookingsService {
     if (!booking) {
       throw new NotFoundException('Agendamento não encontrado');
     }
+
+    const allowed = BookingsService.STATUS_TRANSITIONS[booking.status];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException(
+        `Transição de status inválida: ${booking.status} → ${dto.status}`,
+      );
+    }
+
     booking.status = dto.status;
     return this.bookingRepo.save(booking);
   }

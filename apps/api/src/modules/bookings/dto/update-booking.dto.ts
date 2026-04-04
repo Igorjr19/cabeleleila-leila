@@ -1,6 +1,12 @@
 import { UpdateBookingRequest } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsDateString, IsOptional, IsUUID } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsDateString,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 
 export class UpdateBookingDto implements UpdateBookingRequest {
   @ApiProperty({
@@ -19,6 +25,7 @@ export class UpdateBookingDto implements UpdateBookingRequest {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @IsUUID('4', { each: true })
   serviceIds?: string[];
 }

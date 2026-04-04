@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -154,7 +155,7 @@ export class BookingsController {
       id,
       user.establishmentId,
     );
-    if (!result) return null;
+    if (!result) throw new NotFoundException('Agendamento não encontrado');
     return {
       ...result,
       scheduledAt: result.scheduledAt.toISOString(),

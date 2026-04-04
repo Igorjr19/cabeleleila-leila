@@ -1,6 +1,6 @@
 import { CreateBookingRequest } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsDateString, IsNotEmpty, IsUUID } from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsUUID } from 'class-validator';
 
 export class CreateBookingDto implements CreateBookingRequest {
   @ApiProperty({
@@ -8,7 +8,7 @@ export class CreateBookingDto implements CreateBookingRequest {
     description: 'Array de IDs dos serviços a serem agendados',
   })
   @IsArray()
-  @IsNotEmpty()
+  @ArrayMinSize(1)
   @IsUUID('4', { each: true })
   serviceIds: string[];
 

@@ -1,29 +1,25 @@
-import { Body, Controller, Get, Put, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Request as ExpressRequest } from 'express';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 
-export interface AuthenticatedRequest extends ExpressRequest {
-  user: JwtPayload;
-}
-
 @ApiTags('Users')
 @Controller('users')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Obter perfil do usuário autenticado',
     description: 'Retorna os dados do usuário logado',
@@ -33,13 +29,11 @@ export class UsersController {
     description: 'Dados do perfil do usuário',
     type: User,
   })
-  getProfile(@Request() req: AuthenticatedRequest): Promise<User | null> {
-    return this.usersService.findById(req.user.sub);
+  getProfile(@CurrentUser() user: JwtPayload): Promise<User | null> {
+    return this.usersService.findById(user.sub);
   }
 
   @Put('me')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Atualizar perfil do usuário',
     description: 'Atualiza nome e telefone do usuário autenticado',
@@ -50,9 +44,9 @@ export class UsersController {
     type: User,
   })
   updateProfile(
-    @Request() req: AuthenticatedRequest,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateProfileDto,
   ): Promise<User> {
-    return this.usersService.updateProfile(req.user.sub, dto.name, dto.phone);
+    return this.usersService.updateProfile(user.sub, dto.name, dto.phone);
   }
 }
