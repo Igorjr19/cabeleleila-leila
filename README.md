@@ -1,5 +1,7 @@
 # Cabeleleila Leila — Sistema de Agendamentos
 
+![Dashboard administrativo](docs/screenshots/6_dashboard.png)
+
 Sistema de agendamento online para salão de beleza, desenvolvido como teste técnico DSIN.
 
 ## Tecnologias
@@ -164,6 +166,12 @@ pnpm --filter api migration:run       # Aplica migrações pendentes
 pnpm --filter api migration:revert    # Reverte a última migração
 pnpm --filter api migration:generate  # Gera nova migração a partir das entidades
 ```
+
+---
+
+## Screenshots
+
+Veja mais capturas de tela da aplicação na pasta [docs/screenshots/](docs/screenshots/).
 
 ---
 
