@@ -1,25 +1,24 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { switchMap } from 'rxjs';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { SelectModule } from 'primeng/select';
-import { DatePickerModule } from 'primeng/datepicker';
-import { TagModule } from 'primeng/tag';
-import { MessageModule } from 'primeng/message';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService, MessageService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import {
   BookingListFilters,
   BookingResponse,
   BookingStatus,
 } from '@cabeleleila/contracts';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DatePickerModule } from 'primeng/datepicker';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { switchMap } from 'rxjs';
+import { SALON_PHONE } from '../../../core/constants/establishment';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
-import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
-import { SALON_PHONE } from '../../../core/constants/establishment';
 
 const STATUS_LABELS: Record<BookingStatus, string> = {
   [BookingStatus.PENDING]: 'Pendente',
@@ -49,7 +48,6 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
     FormsModule,
     RouterLink,
     SpDatetimePipe,
-    BrlCurrencyPipe,
   ],
   template: `
     <div class="flex justify-content-between align-items-center mb-3">

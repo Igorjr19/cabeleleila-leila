@@ -18,6 +18,11 @@ export class RegisterDto implements RegisterRequest {
   @IsEmail()
   email: string;
 
+  @ApiProperty({ example: '(11) 99999-9999' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
   @ApiProperty({ example: 'senha123', minLength: 6 })
   @IsString()
   @MinLength(6)

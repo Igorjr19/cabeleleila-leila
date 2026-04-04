@@ -19,6 +19,7 @@ export class AuthService {
   async register(
     name: string,
     email: string,
+    phone: string,
     password: string,
     establishmentId: string,
   ) {
@@ -31,6 +32,7 @@ export class AuthService {
     const user = await this.usersService.create({
       name,
       email,
+      phone,
       password: hashedPassword,
     });
 

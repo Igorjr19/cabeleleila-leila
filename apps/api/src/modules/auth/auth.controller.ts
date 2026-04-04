@@ -29,6 +29,7 @@ export class AuthController {
     return this.authService.register(
       dto.name,
       dto.email,
+      dto.phone,
       dto.password,
       dto.establishmentId,
     );

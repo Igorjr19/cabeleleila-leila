@@ -9,6 +9,7 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
+import { InputMaskModule } from 'primeng/inputmask';
 import { PasswordModule } from 'primeng/password';
 import { MessageModule } from 'primeng/message';
 import { AuthService } from '../../../core/services/auth.service';
@@ -28,6 +29,7 @@ function passwordMatchValidator(
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,
+    InputMaskModule,
     PasswordModule,
     MessageModule,
     RouterLink,
@@ -64,6 +66,17 @@ function passwordMatchValidator(
           formControlName="email"
           placeholder="seu@email.com"
           class="w-full"
+        />
+      </div>
+
+      <div class="flex flex-column gap-1">
+        <label for="phone">Telefone</label>
+        <p-inputmask
+          id="phone"
+          formControlName="phone"
+          mask="(99) 99999-9999"
+          placeholder="(11) 99999-9999"
+          styleClass="w-full"
         />
       </div>
 
@@ -124,6 +137,7 @@ export class RegisterComponent {
     {
       name: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
+      phone: ['', Validators.required],
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', Validators.required],
     },
@@ -135,8 +149,8 @@ export class RegisterComponent {
     this.loading.set(true);
     this.error.set(null);
 
-    const { name, email, password } = this.form.getRawValue();
-    this.auth.register(name!, email!, password!).subscribe({
+    const { name, email, phone, password } = this.form.getRawValue();
+    this.auth.register(name!, email!, phone!, password!).subscribe({
       next: () => {
         this.loading.set(false);
         this.router.navigate(['/bookings']);

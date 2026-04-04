@@ -50,10 +50,11 @@ export class AuthService {
       .pipe(tap((res) => this.saveSession(res)));
   }
 
-  register(name: string, email: string, password: string) {
+  register(name: string, email: string, phone: string, password: string) {
     const body: RegisterRequest = {
       name,
       email,
+      phone,
       password,
       establishmentId: environment.establishmentId,
     };
