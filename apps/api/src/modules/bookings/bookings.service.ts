@@ -15,6 +15,7 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { BookingService as BookingEntityService } from './entities/booking-service.entity';
 import { Booking, BookingStatus } from './entities/booking.entity';
+import { Service } from '../services/entities/service.entity';
 import { BookingWithServices } from './interfaces/booking-with-services.interface';
 
 @Injectable()
@@ -54,6 +55,17 @@ export class BookingsService {
     const services = await this.servicesService.findByIdsAndEstablishment(
       dto.serviceIds,
       establishmentId,
+    );
+
+    const totalDurationMinutes = services.reduce(
+      (sum, s) => sum + s.durationMinutes,
+      0,
+    );
+
+    await this.checkTimeSlotConflict(
+      establishmentId,
+      scheduledDate,
+      totalDurationMinutes,
     );
 
     const suggestion = await this.checkSameWeekSuggestion(
@@ -109,7 +121,7 @@ export class BookingsService {
         establishmentId,
         ...(isAdmin ? {} : { customerId }),
       },
-      relations: ['bookingServices'],
+      relations: ['bookingServices', 'bookingServices.service'],
     });
 
     if (!booking) {
@@ -134,6 +146,15 @@ export class BookingsService {
       );
     }
 
+    // Pre-fetch new services if updating serviceIds
+    let updatedServices: Service[] | null = null;
+    if (dto.serviceIds && dto.serviceIds.length > 0) {
+      updatedServices = await this.servicesService.findByIdsAndEstablishment(
+        dto.serviceIds,
+        establishmentId,
+      );
+    }
+
     if (dto.scheduledAt) {
       const newDate = new Date(dto.scheduledAt);
       if (newDate <= new Date()) {
@@ -143,18 +164,28 @@ export class BookingsService {
       if (!isAdmin) {
         this.validateMinDaysAhead(newDate, config.min_days_for_online_update);
       }
+
+      const durationServices =
+        updatedServices ?? booking.bookingServices.map((bs) => bs.service);
+      const totalDurationMinutes = durationServices.reduce(
+        (sum, s) => sum + s.durationMinutes,
+        0,
+      );
+      await this.checkTimeSlotConflict(
+        establishmentId,
+        newDate,
+        totalDurationMinutes,
+        bookingId,
+      );
+
       booking.scheduledAt = newDate;
     }
 
     await this.bookingRepo.save(booking);
 
-    if (dto.serviceIds && dto.serviceIds.length > 0) {
-      const services = await this.servicesService.findByIdsAndEstablishment(
-        dto.serviceIds,
-        establishmentId,
-      );
+    if (updatedServices !== null) {
       await this.bookingServiceRepo.delete({ bookingId });
-      for (const service of services) {
+      for (const service of updatedServices) {
         await this.bookingServiceRepo.save(
           this.bookingServiceRepo.create({
             bookingId,
@@ -438,6 +469,50 @@ export class BookingsService {
       throw new BadRequestException(
         `Alterações online exigem ${minDays} dias de antecedência. ` +
           `Para datas mais próximas, entre em contato por telefone.`,
+      );
+    }
+  }
+
+  private async checkTimeSlotConflict(
+    establishmentId: string,
+    scheduledDate: Date,
+    totalDurationMinutes: number,
+    excludeBookingId?: string,
+  ): Promise<void> {
+    const newEnd = new Date(
+      scheduledDate.getTime() + totalDurationMinutes * 60_000,
+    );
+
+    const params: unknown[] = [
+      establishmentId,
+      newEnd.toISOString(),
+      scheduledDate.toISOString(),
+    ];
+
+    let excludeClause = '';
+    if (excludeBookingId) {
+      params.push(excludeBookingId);
+      excludeClause = `AND b.id != $${params.length}`;
+    }
+
+    const result: { id: string }[] = await this.dataSource.query(
+      `SELECT b.id
+       FROM bookings b
+       INNER JOIN booking_services bs ON bs.booking_id = b.id
+       INNER JOIN services s ON s.id = bs.service_id
+       WHERE b.establishment_id = $1
+         AND b.status IN ('PENDING', 'CONFIRMED')
+         AND b.scheduled_at < $2
+         ${excludeClause}
+       GROUP BY b.id, b.scheduled_at
+       HAVING (b.scheduled_at + (SUM(s.duration_minutes) * INTERVAL '1 minute')) > $3
+       LIMIT 1`,
+      params,
+    );
+
+    if (result.length > 0) {
+      throw new BadRequestException(
+        'Horário indisponível. Já existe um agendamento neste horário. Por favor, escolha outro horário.',
       );
     }
   }

@@ -342,6 +342,9 @@ export class BookingNewComponent implements OnInit {
           this.submitError.set(
             `${msg} Para datas mais próximas, ligue: ${this.salonPhone}`,
           );
+        } else if (msg.toLowerCase().includes('horário indisponível')) {
+          this.dateError.set(msg);
+          this.goToStep(1);
         } else {
           this.submitError.set(msg);
         }
