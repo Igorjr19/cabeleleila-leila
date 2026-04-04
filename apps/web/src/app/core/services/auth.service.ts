@@ -1,14 +1,14 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs';
 import {
   AuthResponse,
   LoginRequest,
   RegisterRequest,
+  Role,
   UserProfile,
 } from '@cabeleleila/contracts';
-import { Role } from '@cabeleleila/contracts';
+import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 const TOKEN_KEY = 'auth_token';
@@ -29,13 +29,26 @@ export class AuthService {
   restoreSession(): void {
     const token = localStorage.getItem(TOKEN_KEY);
     const userRaw = localStorage.getItem(USER_KEY);
-    if (token && userRaw) {
+    if (token && userRaw && !this.isTokenExpired(token)) {
       try {
         this.token.set(token);
         this.currentUser.set(JSON.parse(userRaw) as UserProfile);
       } catch {
         this.clearStorage();
       }
+    } else if (token || userRaw) {
+      this.clearStorage();
+    }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(base64));
+      return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now();
+    } catch {
+      return true;
     }
   }
 
@@ -64,6 +77,7 @@ export class AuthService {
   }
 
   logout(): void {
+    if (!this.isAuthenticated()) return;
     this.clearStorage();
     this.token.set(null);
     this.currentUser.set(null);
