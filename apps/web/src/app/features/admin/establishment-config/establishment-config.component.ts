@@ -27,80 +27,90 @@ import { EstablishmentApiService } from '../../../core/services/establishment-ap
     <div class="max-w-lg mx-auto">
       <h2 class="mb-4">Configurações do Estabelecimento</h2>
 
-      <p-card>
-        <form
-          [formGroup]="form"
-          (ngSubmit)="submit()"
-          class="flex flex-column gap-4"
-          formGroupName=""
-        >
-          <div formGroupName="business_hours" class="flex flex-column gap-3">
-            <h3 class="m-0">Horário de Funcionamento</h3>
-
-            <div class="grid">
-              <div class="col-6 flex flex-column gap-1">
-                <label>Abertura</label>
-                <p-inputmask
-                  formControlName="open"
-                  mask="99:99"
-                  placeholder="08:00"
-                  styleClass="w-full"
-                />
-              </div>
-              <div class="col-6 flex flex-column gap-1">
-                <label>Fechamento</label>
-                <p-inputmask
-                  formControlName="close"
-                  mask="99:99"
-                  placeholder="18:00"
-                  styleClass="w-full"
-                />
-              </div>
-              <div class="col-6 flex flex-column gap-1">
-                <label>Início do almoço</label>
-                <p-inputmask
-                  formControlName="lunchStart"
-                  mask="99:99"
-                  placeholder="12:00"
-                  styleClass="w-full"
-                />
-              </div>
-              <div class="col-6 flex flex-column gap-1">
-                <label>Fim do almoço</label>
-                <p-inputmask
-                  formControlName="lunchEnd"
-                  mask="99:99"
-                  placeholder="13:00"
-                  styleClass="w-full"
-                />
-              </div>
+      <form
+        [formGroup]="form"
+        (ngSubmit)="submit()"
+        class="flex flex-column gap-3"
+      >
+        <p-card>
+          <ng-template pTemplate="title">
+            <span class="flex align-items-center gap-2">
+              <i class="pi pi-clock text-primary"></i>
+              Horário de Funcionamento
+            </span>
+          </ng-template>
+          <div formGroupName="business_hours" class="grid mt-1">
+            <div class="col-6 flex flex-column gap-1">
+              <label class="font-medium text-sm">Abertura</label>
+              <p-inputmask
+                formControlName="open"
+                mask="99:99"
+                placeholder="08:00"
+                styleClass="w-full"
+              />
+            </div>
+            <div class="col-6 flex flex-column gap-1">
+              <label class="font-medium text-sm">Fechamento</label>
+              <p-inputmask
+                formControlName="close"
+                mask="99:99"
+                placeholder="18:00"
+                styleClass="w-full"
+              />
+            </div>
+            <div class="col-6 flex flex-column gap-1 mt-2">
+              <label class="font-medium text-sm">Início do almoço</label>
+              <p-inputmask
+                formControlName="lunchStart"
+                mask="99:99"
+                placeholder="12:00"
+                styleClass="w-full"
+              />
+            </div>
+            <div class="col-6 flex flex-column gap-1 mt-2">
+              <label class="font-medium text-sm">Fim do almoço</label>
+              <p-inputmask
+                formControlName="lunchEnd"
+                mask="99:99"
+                placeholder="13:00"
+                styleClass="w-full"
+              />
             </div>
           </div>
+        </p-card>
 
-          <p-divider />
-
-          <div class="flex flex-column gap-1">
-            <label>Antecedência mínima para alteração online (dias)</label>
+        <p-card>
+          <ng-template pTemplate="title">
+            <span class="flex align-items-center gap-2">
+              <i class="pi pi-calendar text-primary"></i>
+              Cancelamento e Edição Online
+            </span>
+          </ng-template>
+          <div class="flex flex-column gap-1 mt-1">
+            <label class="font-medium text-sm"
+              >Antecedência mínima (dias)</label
+            >
             <p-inputnumber
               formControlName="min_days_for_online_update"
               [min]="1"
               [max]="30"
               styleClass="w-full"
             />
-            <small class="text-color-secondary"
-              >Clientes precisam deste prazo para editar/cancelar online.</small
-            >
+            <small class="text-color-secondary">
+              Prazo mínimo para clientes editarem ou cancelarem online.
+            </small>
           </div>
+        </p-card>
 
-          <p-button
-            type="submit"
-            label="Salvar configurações"
-            [loading]="loading()"
-            [disabled]="form.invalid || form.pristine"
-            styleClass="w-full"
-          />
-        </form>
-      </p-card>
+        <p-button
+          type="submit"
+          label="Salvar configurações"
+          icon="pi pi-check"
+          [loading]="loading()"
+          [disabled]="form.invalid || form.pristine"
+          styleClass="w-full"
+        />
+      </form>
     </div>
   `,
 })

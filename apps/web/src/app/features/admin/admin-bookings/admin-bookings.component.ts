@@ -111,8 +111,9 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                 [(ngModel)]="b.status"
                 optionLabel="label"
                 optionValue="value"
+                appendTo="body"
                 (onChange)="changeStatus(b, $event.value)"
-                styleClass="p-select-sm"
+                styleClass="p-select-sm w-full"
               />
             </td>
             <td>

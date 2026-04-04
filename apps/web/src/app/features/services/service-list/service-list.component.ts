@@ -21,7 +21,9 @@ import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
     BrlCurrencyPipe,
   ],
   template: `
-    <div class="flex justify-content-between align-items-center mb-4">
+    <div
+      class="flex flex-wrap justify-content-between align-items-center gap-2 mb-4"
+    >
       <h2 class="m-0">Serviços</h2>
       @if (isAdmin()) {
         <a

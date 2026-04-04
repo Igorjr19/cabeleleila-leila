@@ -123,7 +123,9 @@ export class ServiceFormComponent {
     ServiceFormComponent,
   ],
   template: `
-    <div class="flex justify-content-between align-items-center mb-3">
+    <div
+      class="flex flex-wrap justify-content-between align-items-center gap-2 mb-3"
+    >
       <h2 class="m-0">Serviços</h2>
       <p-button label="Novo Serviço" icon="pi pi-plus" (onClick)="openNew()" />
     </div>

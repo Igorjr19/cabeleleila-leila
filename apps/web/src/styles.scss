@@ -17,6 +17,11 @@ body {
   color: var(--text-color);
 }
 
+a.p-button,
+a[pButton] {
+  text-decoration: none;
+}
+
 h1,
 h2,
 h3,

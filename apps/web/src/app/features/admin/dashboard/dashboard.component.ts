@@ -8,6 +8,7 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { DividerModule } from 'primeng/divider';
+import { SkeletonModule } from 'primeng/skeleton';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { WeeklyStats } from '@cabeleleila/contracts';
 import { BookingResponse, BookingStatus } from '@cabeleleila/contracts';
@@ -41,6 +42,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
     TagModule,
     ButtonModule,
     DividerModule,
+    SkeletonModule,
     RouterLink,
     SpDatetimePipe,
     BrlCurrencyPipe,
@@ -56,6 +58,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         [showButtonBar]="true"
         (onSelect)="loadWeek()"
         (onClear)="onClearWeek()"
+        styleClass="w-full md:w-auto"
       />
     </div>
 
@@ -97,9 +100,9 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
       <div class="grid mb-4">
         @for (i of [1, 2, 3, 4]; track i) {
           <div class="col-12 sm:col-6 lg:col-3">
-            <p-card styleClass="text-center">
-              <div class="text-3xl font-bold text-color-secondary">—</div>
-              <div class="text-color-secondary mt-1">...</div>
+            <p-card>
+              <p-skeleton height="2.5rem" styleClass="mb-2" />
+              <p-skeleton width="60%" height="1rem" />
             </p-card>
           </div>
         }
@@ -171,7 +174,7 @@ export class DashboardComponent implements OnInit {
     const weekOf = this.weekPicker ? getWeekStart(this.weekPicker) : undefined;
 
     this.bookingApi.getWeeklyStats(weekOf).subscribe({
-      next: (res) => this.stats.set(res.stats),
+      next: (res) => this.stats.set(res),
     });
 
     const filters = weekOf

@@ -50,7 +50,9 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
     SpDatetimePipe,
   ],
   template: `
-    <div class="flex justify-content-between align-items-center mb-3">
+    <div
+      class="flex flex-wrap justify-content-between align-items-center gap-2 mb-3"
+    >
       <h2 class="m-0">Meus Agendamentos</h2>
       <a
         pButton

@@ -114,6 +114,7 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/admin/dashboard"
                 label="Dashboard"
                 (click)="mobileMenuOpen = false"
@@ -121,6 +122,7 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/admin/bookings"
                 label="Agendamentos"
                 (click)="mobileMenuOpen = false"
@@ -128,6 +130,7 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/admin/services"
                 label="Serviços"
                 (click)="mobileMenuOpen = false"
@@ -135,6 +138,7 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/admin/establishment"
                 label="Configurações"
                 (click)="mobileMenuOpen = false"
@@ -143,6 +147,7 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/services"
                 label="Serviços"
                 (click)="mobileMenuOpen = false"
@@ -150,6 +155,7 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/bookings"
                 label="Agendamentos"
                 (click)="mobileMenuOpen = false"
@@ -157,18 +163,24 @@ import { AuthService } from '../../core/services/auth.service';
               <a
                 pButton
                 text
+                class="w-full justify-content-start"
                 routerLink="/profile"
                 label="Perfil"
                 (click)="mobileMenuOpen = false"
               ></a>
             }
-            <p-button label="Sair" severity="secondary" (onClick)="logout()" />
+            <p-button
+              label="Sair"
+              severity="secondary"
+              styleClass="w-full"
+              (onClick)="logout()"
+            />
           </div>
         </div>
       }
 
       <!-- Main content -->
-      <main class="flex-1 p-3">
+      <main class="flex-1 p-3" style="min-width: 0; overflow-x: hidden">
         <router-outlet />
       </main>
     </div>
