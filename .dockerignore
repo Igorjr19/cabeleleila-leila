@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.angular
+**/.git
+**/.gitignore
+**/*.md
+**/coverage
+**/.env
+**/.env.local
+**/temp
+**/logs
+**/*.log

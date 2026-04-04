@@ -13,7 +13,40 @@ services:
       test: ['CMD-SHELL', 'pg_isready -U cabeleleila -d cabeleleila_db']
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      TZ: America/Sao_Paulo
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: cabeleleila
+      DB_PASSWORD: cabeleleila123
+      DB_NAME: cabeleleila_db
+      JWT_SECRET: change-this-secret-in-production
+      JWT_EXPIRATION: 86400
+      API_PORT: 3001
+      CORS_ORIGIN: http://localhost:4200
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - '4200:80'
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   postgres_data:
