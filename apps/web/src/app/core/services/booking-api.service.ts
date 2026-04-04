@@ -7,7 +7,7 @@ import {
   CreateBookingRequest,
   UpdateBookingRequest,
   UpdateBookingStatusRequest,
-  WeeklyPerformanceResponse,
+  WeeklyStats,
 } from '@cabeleleila/contracts';
 import { environment } from '../../../environments/environment';
 
@@ -54,10 +54,9 @@ export class BookingApiService {
 
   getWeeklyStats(weekOf?: string) {
     const params = weekOf ? new HttpParams().set('weekOf', weekOf) : undefined;
-    return this.http.get<WeeklyPerformanceResponse>(
-      `${this.base}/dashboard/weekly`,
-      { params },
-    );
+    return this.http.get<WeeklyStats>(`${this.base}/dashboard/weekly`, {
+      params,
+    });
   }
 }
 
