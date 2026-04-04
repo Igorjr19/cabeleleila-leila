@@ -128,7 +128,9 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                   <p-button
                     label="Cancelar"
                     severity="secondary"
-                    (onClick)="editMode.set(false)"
+                    (onClick)="
+                      editMode.set(false); newDate = null; dateError.set(null)
+                    "
                   />
                   <p-button
                     label="Salvar"
@@ -148,7 +150,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                   label="Editar horário"
                   icon="pi pi-pencil"
                   severity="secondary"
-                  (onClick)="editMode.set(true)"
+                  (onClick)="startEdit()"
                 />
                 <p-button
                   label="Cancelar agendamento"
@@ -214,6 +216,19 @@ export class BookingDetailComponent implements OnInit {
     return (
       b.status === BookingStatus.PENDING || b.status === BookingStatus.CONFIRMED
     );
+  }
+
+  startEdit(): void {
+    const scheduledAt = this.booking()?.scheduledAt;
+    if (scheduledAt) {
+      // Convert UTC -> SP wall-clock time, then shift to local tz keeping same digits
+      // so the datepicker shows the SP time and toUtcISO() round-trips correctly
+      this.newDate = DateTime.fromISO(scheduledAt, { zone: 'utc' })
+        .setZone('America/Sao_Paulo')
+        .setZone('local', { keepLocalTime: true })
+        .toJSDate();
+    }
+    this.editMode.set(true);
   }
 
   validateNewDate(): void {
