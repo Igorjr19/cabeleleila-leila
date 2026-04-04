@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
+import { seedAdmin } from './database/seeds/admin.seed';
 import { seedEstablishment } from './database/seeds/establishment.seed';
 import { seedServices } from './database/seeds/services.seed';
 
@@ -41,6 +42,7 @@ async function bootstrap() {
     const dataSource = app.get(DataSource);
     if (dataSource.isInitialized) {
       await seedEstablishment(dataSource);
+      await seedAdmin(dataSource);
       await seedServices(dataSource);
     }
   } catch (error) {
