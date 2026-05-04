@@ -96,8 +96,14 @@ export class BookingsService {
       return savedBooking;
     });
 
+    const withCustomer = await this.bookingRepo.findOne({
+      where: { id: saved.id },
+      relations: ['customer'],
+    });
+
     return {
       ...saved,
+      customerName: withCustomer?.customer?.name ?? '',
       services: services.map((s) => ({
         id: s.id,
         name: s.name,
@@ -219,10 +225,10 @@ export class BookingsService {
     bookingId: string,
     establishmentId: string,
     dto: UpdateBookingStatusDto,
-  ): Promise<Booking> {
-    const booking = await this.bookingRepo.findOneBy({
-      id: bookingId,
-      establishmentId,
+  ): Promise<BookingWithServices> {
+    const booking = await this.bookingRepo.findOne({
+      where: { id: bookingId, establishmentId },
+      relations: ['customer'],
     });
     if (!booking) {
       throw new NotFoundException('Agendamento não encontrado');
@@ -236,7 +242,11 @@ export class BookingsService {
     }
 
     booking.status = dto.status;
-    return this.bookingRepo.save(booking);
+    const savedBooking = await this.bookingRepo.save(booking);
+    return {
+      ...savedBooking,
+      customerName: booking.customer?.name ?? '',
+    };
   }
 
   async listByCustomer(
@@ -248,6 +258,7 @@ export class BookingsService {
       .createQueryBuilder('b')
       .leftJoinAndSelect('b.bookingServices', 'bs')
       .leftJoinAndSelect('bs.service', 's')
+      .leftJoinAndSelect('b.customer', 'c')
       .where('b.establishment_id = :establishmentId', { establishmentId })
       .andWhere('b.customer_id = :customerId', { customerId })
       .orderBy('b.scheduled_at', 'DESC');
@@ -276,6 +287,7 @@ export class BookingsService {
       .createQueryBuilder('b')
       .leftJoinAndSelect('b.bookingServices', 'bs')
       .leftJoinAndSelect('bs.service', 's')
+      .leftJoinAndSelect('b.customer', 'c')
       .where('b.establishment_id = :establishmentId', { establishmentId })
       .orderBy('b.scheduled_at', 'DESC');
 
@@ -306,7 +318,7 @@ export class BookingsService {
 
     const booking = await this.bookingRepo.findOne({
       where,
-      relations: ['bookingServices', 'bookingServices.service'],
+      relations: ['bookingServices', 'bookingServices.service', 'customer'],
     });
 
     if (!booking) {
@@ -315,6 +327,7 @@ export class BookingsService {
 
     return {
       ...booking,
+      customerName: booking.customer?.name ?? '',
       services:
         booking.bookingServices?.map((bs) => ({
           id: bs.service.id,
@@ -337,7 +350,7 @@ export class BookingsService {
 
     const booking = await this.bookingRepo.findOne({
       where,
-      relations: ['bookingServices', 'bookingServices.service'],
+      relations: ['bookingServices', 'bookingServices.service', 'customer'],
     });
 
     if (!booking) {
@@ -364,6 +377,7 @@ export class BookingsService {
 
     return {
       ...booking,
+      customerName: booking.customer?.name ?? '',
       services:
         booking.bookingServices?.map((bs) => ({
           id: bs.service.id,
@@ -554,6 +568,7 @@ export class BookingsService {
   private mapBookingsWithServices(bookings: Booking[]): BookingWithServices[] {
     return bookings.map((b) => ({
       ...b,
+      customerName: b.customer?.name ?? '',
       services:
         b.bookingServices?.map((bs) => ({
           id: bs.service.id,

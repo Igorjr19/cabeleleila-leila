@@ -34,6 +34,8 @@ export class BookingResponseDto implements BookingResponse {
   @ApiProperty()
   customerId: string;
   @ApiProperty()
+  customerName: string;
+  @ApiProperty()
   scheduledAt: string;
   @ApiProperty({ enum: ['PENDING', 'CONFIRMED', 'CANCELLED', 'FINISHED'] })
   status: BookingStatus;

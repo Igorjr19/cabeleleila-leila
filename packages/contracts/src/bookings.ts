@@ -11,6 +11,7 @@ export interface BookingResponse {
   id: string;
   establishmentId: string;
   customerId: string;
+  customerName: string;
   scheduledAt: string;
   status: BookingStatus;
   createdAt: string;

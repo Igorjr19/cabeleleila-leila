@@ -1,5 +1,4 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CardModule } from 'primeng/card';
@@ -34,7 +33,6 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    SlicePipe,
     FormsModule,
     CardModule,
     DatePickerModule,
@@ -134,9 +132,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         <ng-template pTemplate="body" let-b>
           <tr>
             <td>{{ b.scheduledAt | spDatetime }}</td>
-            <td class="text-sm text-color-secondary">
-              {{ b.customerId | slice: 0 : 8 }}...
-            </td>
+            <td>{{ b.customerName }}</td>
             <td>{{ b.services.length }} serviço(s)</td>
             <td>
               <p-tag
