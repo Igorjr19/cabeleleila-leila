@@ -27,6 +27,7 @@ import { BookingsService } from './bookings.service';
 import { BookingResponseDto } from './dto/booking-response.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
+import { UpdateBookingServiceStatusDto } from './dto/update-booking-service-status.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 
@@ -93,6 +94,34 @@ export class BookingsController {
       createdAt: result.createdAt.toISOString(),
       services: result.services || [],
     }));
+  }
+
+  @Get('availability')
+  @ApiOperation({
+    summary: 'Listar slots de horário disponíveis para uma data',
+    description:
+      'Retorna grade de horários (a cada 30 minutos) com flag de disponibilidade — considerando horário de funcionamento, almoço, conflitos com outros agendamentos e regra de antecedência mínima.',
+  })
+  @ApiQuery({ name: 'date', required: true, description: 'YYYY-MM-DD' })
+  @ApiQuery({
+    name: 'durationMinutes',
+    required: true,
+    description: 'Duração total dos serviços a agendar (minutos)',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de slots' })
+  async getAvailability(
+    @CurrentUser() user: JwtPayload,
+    @Query('date') date: string,
+    @Query('durationMinutes') durationMinutesRaw: string,
+  ) {
+    const durationMinutes = Number(durationMinutesRaw);
+    const isAdmin = user.role === Role.ADMIN;
+    return this.bookingsService.getAvailability(
+      user.establishmentId,
+      date,
+      durationMinutes,
+      isAdmin,
+    );
   }
 
   @Get('same-week')
@@ -258,7 +287,44 @@ export class BookingsController {
       ...result,
       scheduledAt: result.scheduledAt.toISOString(),
       createdAt: result.createdAt.toISOString(),
-      services: [],
+      services: result.services || [],
+    };
+  }
+
+  @Patch(':bookingId/services/:serviceId/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Atualizar status de um serviço dentro do agendamento (Admin)',
+    description:
+      'Permite ao salão marcar cada serviço solicitado como pendente, em andamento, concluído ou não realizado.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Status do serviço atualizado',
+    type: BookingResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Agendamento ou serviço não encontrado',
+  })
+  async updateBookingServiceStatus(
+    @CurrentUser() user: JwtPayload,
+    @Param('bookingId') bookingId: string,
+    @Param('serviceId') serviceId: string,
+    @Body() dto: UpdateBookingServiceStatusDto,
+  ): Promise<BookingResponseDto> {
+    const result = await this.bookingsService.updateBookingServiceStatus(
+      bookingId,
+      serviceId,
+      user.establishmentId,
+      dto.status,
+    );
+    return {
+      ...result,
+      scheduledAt: result.scheduledAt.toISOString(),
+      createdAt: result.createdAt.toISOString(),
+      services: result.services || [],
     };
   }
 

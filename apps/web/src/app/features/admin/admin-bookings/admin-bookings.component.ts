@@ -14,6 +14,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
 import { switchMap } from 'rxjs';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
@@ -42,6 +43,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
     SelectModule,
     DatePickerModule,
     TagModule,
+    TooltipModule,
     ConfirmDialogModule,
     RouterLink,
     SpDatetimePipe,
@@ -102,18 +104,43 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
             <td>{{ b.customerName }}</td>
             <td>{{ b.services.length }} serviço(s)</td>
             <td>
-              <p-select
-                [options]="statusOptions"
-                [(ngModel)]="b.status"
-                optionLabel="label"
-                optionValue="value"
-                appendTo="body"
-                (onChange)="changeStatus(b, $event.value)"
-                styleClass="p-select-sm w-full"
+              <p-tag
+                [value]="statusLabel(b.status)"
+                [severity]="statusSeverity(b.status)"
               />
             </td>
             <td>
-              <div class="flex gap-1">
+              <div class="flex gap-1 flex-wrap">
+                @if (b.status === 'PENDING') {
+                  <p-button
+                    icon="pi pi-check"
+                    label="Confirmar"
+                    severity="success"
+                    size="small"
+                    [loading]="busyId() === b.id"
+                    (onClick)="confirm(b)"
+                  />
+                }
+                @if (b.status === 'CONFIRMED') {
+                  <p-button
+                    icon="pi pi-flag-fill"
+                    label="Finalizar"
+                    severity="secondary"
+                    size="small"
+                    [loading]="busyId() === b.id"
+                    (onClick)="confirmFinish(b)"
+                  />
+                }
+                @if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
+                  <p-button
+                    icon="pi pi-times"
+                    severity="danger"
+                    text
+                    size="small"
+                    (onClick)="confirmCancel(b)"
+                    pTooltip="Cancelar"
+                  />
+                }
                 <a
                   pButton
                   icon="pi pi-eye"
@@ -122,16 +149,6 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                   [routerLink]="['/bookings', b.id]"
                   pTooltip="Ver detalhes"
                 ></a>
-                @if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
-                  <p-button
-                    icon="pi pi-times"
-                    text
-                    severity="danger"
-                    size="small"
-                    (onClick)="confirmCancel(b)"
-                    pTooltip="Cancelar"
-                  />
-                }
               </div>
             </td>
           </tr>
@@ -149,6 +166,7 @@ export class AdminBookingsComponent {
   filterRange: Date[] | null = null;
 
   readonly filters = signal<BookingListFilters>({});
+  readonly busyId = signal<string | null>(null);
 
   readonly bookings = toSignal(
     toObservable(this.filters).pipe(
@@ -169,51 +187,90 @@ export class AdminBookingsComponent {
     this.filters.set(f);
   }
 
-  changeStatus(booking: BookingResponse, newStatus: BookingStatus): void {
-    this.bookingApi
-      .updateBookingStatus(booking.id, { status: newStatus })
-      .subscribe({
-        next: () =>
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Status atualizado',
-            detail: STATUS_LABELS[newStatus],
-          }),
-        error: () => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Erro',
-            detail: 'Não foi possível atualizar o status.',
-          });
-          this.applyFilters();
-        },
-      });
+  confirm(booking: BookingResponse): void {
+    this.transitionStatus(
+      booking,
+      BookingStatus.CONFIRMED,
+      'Agendamento confirmado',
+    );
+  }
+
+  confirmFinish(booking: BookingResponse): void {
+    this.confirmationService.confirm({
+      message: `Finalizar o agendamento de ${booking.customerName}?`,
+      header: 'Finalizar agendamento',
+      icon: 'pi pi-flag-fill',
+      acceptLabel: 'Finalizar',
+      rejectLabel: 'Manter',
+      accept: () =>
+        this.transitionStatus(
+          booking,
+          BookingStatus.FINISHED,
+          'Agendamento finalizado',
+        ),
+    });
   }
 
   confirmCancel(booking: BookingResponse): void {
     this.confirmationService.confirm({
-      message: 'Cancelar este agendamento?',
-      header: 'Confirmar',
+      message: `Cancelar o agendamento de ${booking.customerName}?`,
+      header: 'Cancelar agendamento',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Cancelar agendamento',
       rejectLabel: 'Manter',
       acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.bookingApi.cancelBooking(booking.id).subscribe({
-          next: () => {
-            this.messageService.add({
-              severity: 'success',
-              summary: 'Cancelado',
-              detail: '',
-            });
-            this.applyFilters();
-          },
-          error: () =>
-            this.messageService.add({
-              severity: 'error',
-              summary: 'Erro',
-              detail: 'Não foi possível cancelar.',
-            }),
+      accept: () => this.doCancel(booking),
+    });
+  }
+
+  private transitionStatus(
+    booking: BookingResponse,
+    newStatus: BookingStatus,
+    successMessage: string,
+  ): void {
+    this.busyId.set(booking.id);
+    this.bookingApi
+      .updateBookingStatus(booking.id, { status: newStatus })
+      .subscribe({
+        next: () => {
+          this.busyId.set(null);
+          this.messageService.add({
+            severity: 'success',
+            summary: successMessage,
+            detail: booking.customerName,
+          });
+          this.applyFilters();
+        },
+        error: (err) => {
+          this.busyId.set(null);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Erro',
+            detail:
+              err.error?.message ?? 'Não foi possível atualizar o status.',
+          });
+        },
+      });
+  }
+
+  private doCancel(booking: BookingResponse): void {
+    this.busyId.set(booking.id);
+    this.bookingApi.cancelBooking(booking.id).subscribe({
+      next: () => {
+        this.busyId.set(null);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Agendamento cancelado',
+          detail: booking.customerName,
+        });
+        this.applyFilters();
+      },
+      error: (err) => {
+        this.busyId.set(null);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: err.error?.message ?? 'Não foi possível cancelar.',
         });
       },
     });

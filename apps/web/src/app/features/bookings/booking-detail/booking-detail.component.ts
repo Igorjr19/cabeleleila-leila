@@ -3,6 +3,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   BookingResponse,
+  BookingServiceStatus,
   BookingStatus,
   EstablishmentConfig,
 } from '@cabeleleila/contracts';
@@ -14,8 +15,10 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
 import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { SALON_PHONE } from '../../../core/constants/establishment';
+import { AuthService } from '../../../core/services/auth.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
@@ -40,6 +43,25 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
   [BookingStatus.FINISHED]: 'secondary',
 };
 
+const SERVICE_STATUS_LABELS: Record<BookingServiceStatus, string> = {
+  [BookingServiceStatus.PENDING]: 'Pendente',
+  [BookingServiceStatus.IN_PROGRESS]: 'Em andamento',
+  [BookingServiceStatus.DONE]: 'Concluído',
+  [BookingServiceStatus.SKIPPED]: 'Não realizado',
+};
+
+const SERVICE_STATUS_SEVERITY: Record<BookingServiceStatus, string> = {
+  [BookingServiceStatus.PENDING]: 'warn',
+  [BookingServiceStatus.IN_PROGRESS]: 'info',
+  [BookingServiceStatus.DONE]: 'success',
+  [BookingServiceStatus.SKIPPED]: 'secondary',
+};
+
+const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
+  label: SERVICE_STATUS_LABELS[v],
+  value: v,
+}));
+
 @Component({
   selector: 'app-booking-detail',
   standalone: true,
@@ -53,6 +75,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
     DatePickerModule,
     ConfirmDialogModule,
     DividerModule,
+    SelectModule,
     SpDatetimePipe,
     BrlCurrencyPipe,
   ],
@@ -62,7 +85,9 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         <p-button
           icon="pi pi-arrow-left"
           text
-          (onClick)="router.navigate(['/bookings'])"
+          (onClick)="
+            router.navigate([isAdmin() ? '/admin/bookings' : '/bookings'])
+          "
         />
         <h2 class="m-0">Detalhes do Agendamento</h2>
       </div>
@@ -81,6 +106,13 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
               />
             </div>
 
+            @if (isAdmin()) {
+              <div class="flex justify-content-between align-items-center">
+                <span class="text-sm text-color-secondary">CLIENTE</span>
+                <span class="font-medium">{{ booking()!.customerName }}</span>
+              </div>
+            }
+
             <p-divider styleClass="my-1" />
 
             <!-- Date -->
@@ -96,12 +128,41 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
             <!-- Services -->
             <div>
               <p class="text-sm text-color-secondary m-0 mb-2">SERVIÇOS</p>
-              @for (s of booking()!.services; track s.id) {
-                <div class="flex justify-content-between py-1">
-                  <span>{{ s.name }}</span>
-                  <span class="font-semibold">{{ s.price | brlCurrency }}</span>
-                </div>
-              }
+              <div class="flex flex-column gap-2">
+                @for (s of booking()!.services; track s.id) {
+                  <div
+                    class="surface-50 border-round p-2 flex flex-column gap-2"
+                  >
+                    <div
+                      class="flex justify-content-between align-items-center gap-2 flex-wrap"
+                    >
+                      <span class="font-medium">{{ s.name }}</span>
+                      <span class="font-semibold">{{
+                        s.price | brlCurrency
+                      }}</span>
+                    </div>
+
+                    <div class="flex align-items-center gap-2 flex-wrap">
+                      @if (isAdmin() && canEditServiceStatus()) {
+                        <p-select
+                          [ngModel]="s.status"
+                          [options]="serviceStatusOptions"
+                          optionLabel="label"
+                          optionValue="value"
+                          appendTo="body"
+                          styleClass="w-full md:w-auto"
+                          (onChange)="changeServiceStatus(s.id, $event.value)"
+                        />
+                      } @else {
+                        <p-tag
+                          [value]="serviceStatusLabel(s.status)"
+                          [severity]="serviceStatusSeverity(s.status)"
+                        />
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
 
             <!-- Error -->
@@ -147,16 +208,36 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
             @if (!editMode() && canEdit(booking()!)) {
               <p-divider />
               <div class="flex gap-2 flex-wrap">
+                @if (isAdmin() && booking()!.status === 'PENDING') {
+                  <p-button
+                    label="Confirmar agendamento"
+                    icon="pi pi-check"
+                    severity="success"
+                    [loading]="transitioning()"
+                    (onClick)="confirmBooking()"
+                  />
+                }
+                @if (isAdmin() && booking()!.status === 'CONFIRMED') {
+                  <p-button
+                    label="Finalizar agendamento"
+                    icon="pi pi-flag-fill"
+                    severity="secondary"
+                    [loading]="transitioning()"
+                    (onClick)="confirmFinish()"
+                  />
+                }
                 <p-button
                   label="Editar horário"
                   icon="pi pi-pencil"
                   severity="secondary"
+                  text
                   (onClick)="startEdit()"
                 />
                 <p-button
                   label="Cancelar agendamento"
                   icon="pi pi-times"
                   severity="danger"
+                  text
                   (onClick)="confirmCancel()"
                 />
               </div>
@@ -170,6 +251,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
 export class BookingDetailComponent implements OnInit {
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly auth = inject(AuthService);
   private readonly bookingApi = inject(BookingApiService);
   private readonly establishmentApi = inject(EstablishmentApiService);
   private readonly confirmationService = inject(ConfirmationService);
@@ -177,10 +259,14 @@ export class BookingDetailComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly transitioning = signal(false);
   readonly booking = signal<BookingResponse | null>(null);
   readonly actionError = signal<string | null>(null);
   readonly editMode = signal(false);
   readonly dateError = signal<string | null>(null);
+
+  readonly isAdmin = this.auth.isAdmin;
+  readonly serviceStatusOptions = SERVICE_STATUS_OPTIONS;
 
   newDate: Date | null = null;
   minDate = addDays(2);
@@ -213,17 +299,60 @@ export class BookingDetailComponent implements OnInit {
     return STATUS_SEVERITY[s] ?? 'secondary';
   }
 
+  serviceStatusLabel(s: BookingServiceStatus): string {
+    return SERVICE_STATUS_LABELS[s] ?? s;
+  }
+  serviceStatusSeverity(s: BookingServiceStatus): string {
+    return SERVICE_STATUS_SEVERITY[s] ?? 'secondary';
+  }
+
   canEdit(b: BookingResponse): boolean {
     return (
       b.status === BookingStatus.PENDING || b.status === BookingStatus.CONFIRMED
     );
   }
 
+  canEditServiceStatus(): boolean {
+    const b = this.booking();
+    if (!b) return false;
+    return (
+      b.status !== BookingStatus.CANCELLED &&
+      b.status !== BookingStatus.FINISHED
+    );
+  }
+
+  changeServiceStatus(
+    serviceId: string,
+    newStatus: BookingServiceStatus,
+  ): void {
+    const booking = this.booking();
+    if (!booking) return;
+
+    this.bookingApi
+      .updateBookingServiceStatus(booking.id, serviceId, { status: newStatus })
+      .subscribe({
+        next: (updated) => {
+          this.booking.set(updated);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Status do serviço atualizado',
+            detail: SERVICE_STATUS_LABELS[newStatus],
+          });
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Erro',
+            detail:
+              err.error?.message ?? 'Não foi possível atualizar o status.',
+          });
+        },
+      });
+  }
+
   startEdit(): void {
     const scheduledAt = this.booking()?.scheduledAt;
     if (scheduledAt) {
-      // Convert UTC -> SP wall-clock time, then shift to local tz keeping same digits
-      // so the datepicker shows the SP time and toUtcISO() round-trips correctly
       this.newDate = DateTime.fromISO(scheduledAt, { zone: 'utc' })
         .setZone('America/Sao_Paulo')
         .setZone('local', { keepLocalTime: true })
@@ -237,7 +366,14 @@ export class BookingDetailComponent implements OnInit {
     const dt = DateTime.fromJSDate(this.newDate).setZone('America/Sao_Paulo', {
       keepLocalTime: true,
     });
-    const result = isValidBusinessHour(dt, this.config.businessHours);
+    const totalDuration =
+      this.booking()?.services.reduce((sum, s) => sum + s.durationMinutes, 0) ??
+      0;
+    const result = isValidBusinessHour(
+      dt,
+      this.config.businessHours,
+      totalDuration,
+    );
     this.dateError.set(
       result.valid ? null : (result.reason ?? 'Horário inválido'),
     );
@@ -272,6 +408,49 @@ export class BookingDetailComponent implements OnInit {
           );
         },
       });
+  }
+
+  confirmBooking(): void {
+    this.transitionStatus(BookingStatus.CONFIRMED, 'Agendamento confirmado');
+  }
+
+  confirmFinish(): void {
+    this.confirmationService.confirm({
+      message: 'Confirma a finalização deste agendamento?',
+      header: 'Finalizar agendamento',
+      icon: 'pi pi-flag-fill',
+      acceptLabel: 'Finalizar',
+      rejectLabel: 'Manter',
+      accept: () =>
+        this.transitionStatus(BookingStatus.FINISHED, 'Agendamento finalizado'),
+    });
+  }
+
+  private transitionStatus(
+    newStatus: BookingStatus,
+    successMessage: string,
+  ): void {
+    const id = this.booking()!.id;
+    this.transitioning.set(true);
+    this.actionError.set(null);
+
+    this.bookingApi.updateBookingStatus(id, { status: newStatus }).subscribe({
+      next: (updated) => {
+        this.transitioning.set(false);
+        this.booking.set(updated);
+        this.messageService.add({
+          severity: 'success',
+          summary: successMessage,
+          detail: updated.customerName,
+        });
+      },
+      error: (err) => {
+        this.transitioning.set(false);
+        this.actionError.set(
+          err.error?.message ?? 'Não foi possível atualizar o status.',
+        );
+      },
+    });
   }
 
   confirmCancel(): void {

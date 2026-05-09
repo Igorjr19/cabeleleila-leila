@@ -1,10 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
 import {
   BookingResponse,
+  BookingServiceStatus,
   BookingStatus,
-  ServiceSummary,
   BookingSuggestion,
+  ServiceSummary,
 } from '@cabeleleila/contracts';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class ServiceSummaryDto implements ServiceSummary {
   @ApiProperty()
@@ -15,6 +16,8 @@ export class ServiceSummaryDto implements ServiceSummary {
   price: number;
   @ApiProperty()
   durationMinutes: number;
+  @ApiProperty({ enum: BookingServiceStatus })
+  status: BookingServiceStatus;
 }
 
 export class BookingSuggestionDto implements BookingSuggestion {

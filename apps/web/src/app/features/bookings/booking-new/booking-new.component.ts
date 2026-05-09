@@ -3,9 +3,12 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
+  AvailabilityResponse,
+  AvailabilitySlot,
   BookingResponse,
   EstablishmentConfig,
   ServiceResponse,
+  SlotUnavailableReason,
 } from '@cabeleleila/contracts';
 import { DateTime } from 'luxon';
 import { MessageService } from 'primeng/api';
@@ -15,22 +18,29 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
 import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
+import { SkeletonModule } from 'primeng/skeleton';
 import { StepsModule } from 'primeng/steps';
+import { TooltipModule } from 'primeng/tooltip';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { ServiceApiService } from '../../../core/services/service-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
-import {
-  addDays,
-  isValidBusinessHour,
-  toUtcISO,
-} from '../../../shared/utils/date.utils';
+import { addDays } from '../../../shared/utils/date.utils';
 import {
   BookingSuggestionDialogComponent,
   SameWeekChoice,
 } from '../booking-suggestion-dialog/booking-suggestion-dialog.component';
+
+const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
+  PAST: 'Horário já passou',
+  TOO_SOON: 'Antecedência mínima não atendida — ligue para o salão',
+  LUNCH: 'Atravessa o horário de almoço',
+  OCCUPIED: 'Já existe agendamento neste horário',
+  CLOSING: 'O serviço terminaria depois do fechamento',
+  CLOSED: 'Salão fechado',
+};
 
 @Component({
   selector: 'app-booking-new',
@@ -45,6 +55,8 @@ import {
     CardModule,
     MessageModule,
     DividerModule,
+    SkeletonModule,
+    TooltipModule,
     BrlCurrencyPipe,
     SpDatetimePipe,
     BookingSuggestionDialogComponent,
@@ -123,48 +135,110 @@ import {
         </p-card>
       }
 
-      <!-- Step 2: Date & Time -->
+      <!-- Step 2: Date & Slot Selection -->
       @if (activeStep() === 1) {
         <p-card header="Escolha data e horário">
           @if (configError()) {
             <p-message
               severity="warn"
-              text="Não foi possível carregar as restrições de horário. Verifique com o salão."
+              text="Não foi possível carregar as restrições de horário."
               styleClass="mb-3"
             />
           }
 
           <div class="flex flex-column gap-3">
             <div class="flex flex-column gap-1">
-              <label>Data e horário</label>
+              <label class="font-medium">Data</label>
               <p-datepicker
-                [(ngModel)]="selectedDate"
-                [showTime]="true"
+                [(ngModel)]="selectedDay"
                 [minDate]="minDate()"
-                [hourFormat]="'24'"
                 [showButtonBar]="true"
-                placeholder="Selecione data e horário"
+                placeholder="Selecione uma data"
                 styleClass="w-full"
-                (onSelect)="validateDate()"
+                (onSelect)="onDayPicked()"
+                (onClear)="onDayCleared()"
               />
             </div>
 
-            @if (dateError()) {
-              <p-message severity="error" [text]="dateError()!" />
-            }
-
-            @if (selectedDayHours(); as hours) {
-              <p class="text-sm text-color-secondary m-0">
-                @if (hours.isOpen) {
-                  Atendimento {{ dayLabel(hours.dayOfWeek) }}:
-                  {{ hours.openTime }}–{{ hours.closeTime }}
-                  @if (hours.lunchStart && hours.lunchEnd) {
-                    (almoço {{ hours.lunchStart }}–{{ hours.lunchEnd }})
-                  }
-                } @else {
-                  Salão fechado em {{ dayLabel(hours.dayOfWeek) }}.
+            @if (loadingAvailability()) {
+              <div class="grid">
+                @for (i of skeletonRows; track $index) {
+                  <div class="col-4 md:col-3 lg:col-2">
+                    <p-skeleton height="2.5rem" />
+                  </div>
                 }
-              </p>
+              </div>
+            }
+            @if (!loadingAvailability() && availability(); as av) {
+              @if (!av.isOpen) {
+                <p-message
+                  severity="info"
+                  text="Salão fechado neste dia. Escolha outra data."
+                />
+              } @else if (av.slots.length === 0) {
+                <p-message
+                  severity="warn"
+                  text="O total de serviços selecionados é maior que a janela de funcionamento. Reduza serviços ou escolha outro dia."
+                />
+              } @else {
+                <div class="flex flex-column gap-2">
+                  <div
+                    class="flex justify-content-between align-items-center flex-wrap gap-2"
+                  >
+                    <span class="text-sm text-color-secondary">
+                      Atendimento: {{ av.openTime }}–{{ av.closeTime }}
+                      @if (av.lunchStart && av.lunchEnd) {
+                        (almoço {{ av.lunchStart }}–{{ av.lunchEnd }})
+                      }
+                    </span>
+                    <span class="text-sm text-color-secondary">
+                      {{ totalDuration }} min
+                    </span>
+                  </div>
+
+                  @if (!hasAnyAvailable(av.slots)) {
+                    <p-message
+                      severity="warn"
+                      text="Sem horários disponíveis neste dia. Tente outra data."
+                    />
+                  }
+
+                  <div class="grid">
+                    @for (slot of av.slots; track slot.startsAt) {
+                      <div class="col-4 md:col-3 lg:col-2">
+                        <p-button
+                          [label]="slot.time"
+                          severity="primary"
+                          [outlined]="!isSlotSelected(slot)"
+                          [disabled]="!slot.available"
+                          [pTooltip]="slotTooltip(slot)"
+                          tooltipPosition="top"
+                          styleClass="w-full"
+                          (onClick)="pickSlot(slot)"
+                        />
+                      </div>
+                    }
+                  </div>
+
+                  <div class="flex flex-wrap gap-3 mt-1">
+                    <span
+                      class="flex align-items-center gap-1 text-xs text-color-secondary"
+                    >
+                      <i class="pi pi-circle-fill text-primary"></i>
+                      Disponível
+                    </span>
+                    <span
+                      class="flex align-items-center gap-1 text-xs text-color-secondary"
+                    >
+                      <i
+                        class="pi pi-circle-fill"
+                        style="color:var(--surface-300)"
+                      ></i>
+                      Indisponível (passe o mouse para ver o motivo)
+                    </span>
+                  </div>
+                </div>
+              }
             }
           </div>
 
@@ -179,7 +253,7 @@ import {
               icon="pi pi-arrow-right"
               iconPos="right"
               [loading]="checkingSameWeek()"
-              [disabled]="!selectedDate || !!dateError()"
+              [disabled]="!selectedSlot()"
               (onClick)="advanceFromDateStep()"
             />
           </div>
@@ -222,7 +296,7 @@ import {
                 DATA E HORÁRIO
               </p>
               <p class="m-0 text-lg">
-                {{ selectedDate ? (toUtcISO(selectedDate) | spDatetime) : '—' }}
+                {{ selectedSlot()?.startsAt | spDatetime }}
               </p>
             </div>
           </div>
@@ -268,42 +342,22 @@ export class BookingNewComponent implements OnInit {
   readonly loading = signal(false);
   readonly checkingSameWeek = signal(false);
   readonly submitError = signal<string | null>(null);
-  readonly dateError = signal<string | null>(null);
   readonly suggestionVisible = signal(false);
   readonly sameWeekExisting = signal<BookingResponse | null>(null);
 
+  readonly availability = signal<AvailabilityResponse | null>(null);
+  readonly loadingAvailability = signal(false);
+  readonly selectedSlot = signal<AvailabilitySlot | null>(null);
+
   selectedServices: ServiceResponse[] = [];
-  selectedDate: Date | null = null;
+  selectedDay: Date | null = null;
+
+  readonly skeletonRows = Array.from({ length: 12 });
 
   readonly minDate = computed(() => {
     const minDays = this.config()?.minDaysForOnlineUpdate ?? 2;
     return addDays(minDays);
   });
-
-  readonly selectedDayHours = computed(() => {
-    const cfg = this.config();
-    const date = this.selectedDate;
-    if (!cfg || !date) return null;
-    const dt = DateTime.fromJSDate(date).setZone('America/Sao_Paulo', {
-      keepLocalTime: true,
-    });
-    const dayOfWeek = dt.weekday % 7;
-    return cfg.businessHours.find((h) => h.dayOfWeek === dayOfWeek) ?? null;
-  });
-
-  private readonly dayLabels = [
-    'domingo',
-    'segunda',
-    'terça',
-    'quarta',
-    'quinta',
-    'sexta',
-    'sábado',
-  ];
-
-  dayLabel(dayOfWeek: number): string {
-    return this.dayLabels[dayOfWeek] ?? '';
-  }
 
   get totalPrice(): number {
     return this.selectedServices.reduce((s, sv) => s + sv.price, 0);
@@ -323,7 +377,6 @@ export class BookingNewComponent implements OnInit {
     { label: 'Confirmação' },
   ];
 
-  readonly toUtcISO = toUtcISO;
   readonly salonPhone = SALON_PHONE;
 
   ngOnInit(): void {
@@ -337,26 +390,70 @@ export class BookingNewComponent implements OnInit {
     this.activeStep.set(step);
   }
 
-  validateDate(): void {
-    if (!this.selectedDate) return;
-    const cfg = this.config();
-    if (!cfg) return;
+  onDayPicked(): void {
+    this.selectedSlot.set(null);
+    if (!this.selectedDay) {
+      this.availability.set(null);
+      return;
+    }
+    this.loadAvailability();
+  }
 
-    const dt = DateTime.fromJSDate(this.selectedDate).setZone(
-      'America/Sao_Paulo',
-      { keepLocalTime: true },
+  onDayCleared(): void {
+    this.selectedDay = null;
+    this.selectedSlot.set(null);
+    this.availability.set(null);
+  }
+
+  private loadAvailability(): void {
+    if (!this.selectedDay) return;
+    const isoDate = DateTime.fromJSDate(this.selectedDay).toFormat(
+      'yyyy-MM-dd',
     );
-    const result = isValidBusinessHour(dt, cfg.businessHours);
-    this.dateError.set(
-      result.valid ? null : (result.reason ?? 'Horário inválido'),
-    );
+    this.loadingAvailability.set(true);
+    this.availability.set(null);
+
+    this.bookingApi.getAvailability(isoDate, this.totalDuration).subscribe({
+      next: (res) => {
+        this.loadingAvailability.set(false);
+        this.availability.set(res);
+      },
+      error: (err) => {
+        this.loadingAvailability.set(false);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail:
+            err.error?.message ?? 'Não foi possível carregar os horários.',
+        });
+      },
+    });
+  }
+
+  hasAnyAvailable(slots: AvailabilitySlot[]): boolean {
+    return slots.some((s) => s.available);
+  }
+
+  pickSlot(slot: AvailabilitySlot): void {
+    if (!slot.available) return;
+    this.selectedSlot.set(slot);
+  }
+
+  isSlotSelected(slot: AvailabilitySlot): boolean {
+    return this.selectedSlot()?.startsAt === slot.startsAt;
+  }
+
+  slotTooltip(slot: AvailabilitySlot): string {
+    if (slot.available) return '';
+    return slot.reason ? REASON_TOOLTIP[slot.reason] : 'Indisponível';
   }
 
   advanceFromDateStep(): void {
-    if (!this.selectedDate || this.dateError()) return;
+    const slot = this.selectedSlot();
+    if (!slot) return;
     this.checkingSameWeek.set(true);
 
-    this.bookingApi.checkSameWeek(toUtcISO(this.selectedDate)).subscribe({
+    this.bookingApi.checkSameWeek(slot.startsAt).subscribe({
       next: (existing) => {
         this.checkingSameWeek.set(false);
         if (existing) {
@@ -367,7 +464,6 @@ export class BookingNewComponent implements OnInit {
         }
       },
       error: () => {
-        // If the check fails, don't block the flow — proceed to confirmation
         this.checkingSameWeek.set(false);
         this.goToStep(2);
       },
@@ -392,7 +488,6 @@ export class BookingNewComponent implements OnInit {
       return;
     }
 
-    // 'keep-new' → continue with the new booking flow
     this.goToStep(2);
   }
 
@@ -429,20 +524,21 @@ export class BookingNewComponent implements OnInit {
               ? `${msg} Ligue: ${this.salonPhone}`
               : msg,
           });
-          // Reopen the dialog so the user can choose another option
           this.suggestionVisible.set(true);
         },
       });
   }
 
   submit(): void {
-    if (!this.selectedDate || this.selectedServices.length === 0) return;
+    const slot = this.selectedSlot();
+    if (!slot || this.selectedServices.length === 0) return;
+
     this.loading.set(true);
     this.submitError.set(null);
 
     const dto = {
       serviceIds: this.selectedServices.map((s) => s.id),
-      scheduledAt: toUtcISO(this.selectedDate),
+      scheduledAt: slot.startsAt,
     };
 
     this.bookingApi.createBooking(dto).subscribe({
@@ -462,8 +558,15 @@ export class BookingNewComponent implements OnInit {
           this.submitError.set(
             `${msg} Para datas mais próximas, ligue: ${this.salonPhone}`,
           );
-        } else if (msg.toLowerCase().includes('horário indisponível')) {
-          this.dateError.set(msg);
+        } else if (
+          msg.toLowerCase().includes('horário indisponível') ||
+          msg.toLowerCase().includes('funcionamento') ||
+          msg.toLowerCase().includes('almoço')
+        ) {
+          // Slot was taken between our check and submit, or somehow invalid — refresh slots
+          this.submitError.set(`${msg} Atualizando horários...`);
+          this.selectedSlot.set(null);
+          this.loadAvailability();
           this.goToStep(1);
         } else {
           this.submitError.set(msg);

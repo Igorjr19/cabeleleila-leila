@@ -38,6 +38,7 @@ function toMinutes(hhmm: string): number {
 export function isValidBusinessHour(
   dt: DateTime,
   hoursArray: BusinessHours[],
+  durationMinutes = 0,
 ): BusinessHourValidation {
   const dayOfWeek = dt.weekday % 7; // luxon: 1=Mon..7=Sun → JS: 1=Mon..0=Sun
   const hours = hoursArray.find((h) => h.dayOfWeek === dayOfWeek);
@@ -46,24 +47,32 @@ export function isValidBusinessHour(
     return { valid: false, reason: 'Salão fechado neste dia da semana' };
   }
 
-  const mins = dt.hour * 60 + dt.minute;
+  const startMin = dt.hour * 60 + dt.minute;
+  const endMin = startMin + durationMinutes;
+  const openMin = toMinutes(hours.openTime);
+  const closeMin = toMinutes(hours.closeTime);
 
-  if (mins < toMinutes(hours.openTime) || mins >= toMinutes(hours.closeTime)) {
+  if (startMin < openMin || startMin >= closeMin) {
     return {
       valid: false,
       reason: `Horário fora do expediente (${hours.openTime}–${hours.closeTime})`,
     };
   }
-  if (
-    hours.lunchStart &&
-    hours.lunchEnd &&
-    mins >= toMinutes(hours.lunchStart) &&
-    mins < toMinutes(hours.lunchEnd)
-  ) {
+  if (endMin > closeMin) {
     return {
       valid: false,
-      reason: `Horário de almoço (${hours.lunchStart}–${hours.lunchEnd})`,
+      reason: `O serviço terminaria depois do fechamento (${hours.closeTime})`,
     };
+  }
+  if (hours.lunchStart && hours.lunchEnd) {
+    const lunchStartMin = toMinutes(hours.lunchStart);
+    const lunchEndMin = toMinutes(hours.lunchEnd);
+    if (startMin < lunchEndMin && endMin > lunchStartMin) {
+      return {
+        valid: false,
+        reason: `Atravessa o horário de almoço (${hours.lunchStart}–${hours.lunchEnd})`,
+      };
+    }
   }
   return { valid: true };
 }

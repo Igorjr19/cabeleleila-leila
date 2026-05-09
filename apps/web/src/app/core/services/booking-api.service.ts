@@ -1,11 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import {
+  AvailabilityResponse,
   BookingListFilters,
   BookingResponse,
   BookingSuggestion,
   CreateBookingRequest,
   UpdateBookingRequest,
+  UpdateBookingServiceStatusRequest,
   UpdateBookingStatusRequest,
   WeeklyStats,
 } from '@cabeleleila/contracts';
@@ -46,12 +48,31 @@ export class BookingApiService {
     });
   }
 
+  getAvailability(date: string, durationMinutes: number) {
+    return this.http.get<AvailabilityResponse>(`${this.base}/availability`, {
+      params: new HttpParams()
+        .set('date', date)
+        .set('durationMinutes', durationMinutes.toString()),
+    });
+  }
+
   updateBooking(id: string, dto: UpdateBookingRequest) {
     return this.http.patch<BookingResponse>(`${this.base}/${id}`, dto);
   }
 
   updateBookingStatus(id: string, dto: UpdateBookingStatusRequest) {
     return this.http.patch<BookingResponse>(`${this.base}/${id}/status`, dto);
+  }
+
+  updateBookingServiceStatus(
+    bookingId: string,
+    serviceId: string,
+    dto: UpdateBookingServiceStatusRequest,
+  ) {
+    return this.http.patch<BookingResponse>(
+      `${this.base}/${bookingId}/services/${serviceId}/status`,
+      dto,
+    );
   }
 
   cancelBooking(id: string) {

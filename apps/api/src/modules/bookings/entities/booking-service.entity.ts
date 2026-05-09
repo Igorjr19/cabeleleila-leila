@@ -1,4 +1,6 @@
+import { BookingServiceStatus } from '@cabeleleila/contracts';
 import {
+  Check,
   Column,
   Entity,
   JoinColumn,
@@ -9,8 +11,11 @@ import {
 import { Service } from '../../services/entities/service.entity';
 import { Booking } from './booking.entity';
 
+export { BookingServiceStatus };
+
 @Entity('booking_services')
 @Unique(['bookingId', 'serviceId'])
+@Check(`"status" IN ('PENDING', 'IN_PROGRESS', 'DONE', 'SKIPPED')`)
 export class BookingService {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -29,6 +34,9 @@ export class BookingService {
     transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) },
   })
   priceAtBooking: number;
+
+  @Column({ type: 'text', default: BookingServiceStatus.PENDING })
+  status: BookingServiceStatus;
 
   @ManyToOne(() => Booking, (b) => b.bookingServices)
   @JoinColumn({ name: 'booking_id' })

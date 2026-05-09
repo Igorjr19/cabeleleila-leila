@@ -1,6 +1,10 @@
 import {
+  AvailabilityResponse,
+  AvailabilitySlot,
+  BookingServiceStatus,
   BookingSuggestion,
   BusinessHours,
+  SlotUnavailableReason,
   WeeklyStats,
 } from '@cabeleleila/contracts';
 import {
@@ -46,8 +50,6 @@ export class BookingsService {
       throw new BadRequestException('Data de agendamento deve estar no futuro');
     }
 
-    this.validateBusinessHours(scheduledDate, config.businessHours);
-
     if (!isAdmin) {
       this.validateMinDaysAhead(scheduledDate, config.minDaysForOnlineUpdate);
     }
@@ -60,6 +62,12 @@ export class BookingsService {
     const totalDurationMinutes = services.reduce(
       (sum, s) => sum + s.durationMinutes,
       0,
+    );
+
+    this.validateBusinessHours(
+      scheduledDate,
+      totalDurationMinutes,
+      config.businessHours,
     );
 
     await this.checkTimeSlotConflict(
@@ -109,6 +117,7 @@ export class BookingsService {
         name: s.name,
         price: s.price,
         durationMinutes: s.durationMinutes,
+        status: BookingServiceStatus.PENDING,
       })),
       suggestion,
     };
@@ -166,7 +175,6 @@ export class BookingsService {
       if (newDate <= new Date()) {
         throw new BadRequestException('Nova data deve estar no futuro');
       }
-      this.validateBusinessHours(newDate, config.businessHours);
       if (!isAdmin) {
         this.validateMinDaysAhead(newDate, config.minDaysForOnlineUpdate);
       }
@@ -177,6 +185,13 @@ export class BookingsService {
         (sum, s) => sum + s.durationMinutes,
         0,
       );
+
+      this.validateBusinessHours(
+        newDate,
+        totalDurationMinutes,
+        config.businessHours,
+      );
+
       await this.checkTimeSlotConflict(
         establishmentId,
         newDate,
@@ -228,7 +243,6 @@ export class BookingsService {
   ): Promise<BookingWithServices> {
     const booking = await this.bookingRepo.findOne({
       where: { id: bookingId, establishmentId },
-      relations: ['customer'],
     });
     if (!booking) {
       throw new NotFoundException('Agendamento não encontrado');
@@ -242,11 +256,13 @@ export class BookingsService {
     }
 
     booking.status = dto.status;
-    const savedBooking = await this.bookingRepo.save(booking);
-    return {
-      ...savedBooking,
-      customerName: booking.customer?.name ?? '',
-    };
+    await this.bookingRepo.save(booking);
+
+    const result = await this.findById(bookingId, establishmentId);
+    if (!result) {
+      throw new NotFoundException('Agendamento não encontrado');
+    }
+    return result;
   }
 
   async listByCustomer(
@@ -334,6 +350,7 @@ export class BookingsService {
           name: bs.service.name,
           price: bs.service.price,
           durationMinutes: bs.service.durationMinutes,
+          status: bs.status,
         })) ?? [],
     };
   }
@@ -384,7 +401,154 @@ export class BookingsService {
           name: bs.service.name,
           price: bs.service.price,
           durationMinutes: bs.service.durationMinutes,
+          status: bs.status,
         })) ?? [],
+    };
+  }
+
+  async getAvailability(
+    establishmentId: string,
+    dateString: string,
+    durationMinutes: number,
+    isAdmin: boolean,
+  ): Promise<AvailabilityResponse> {
+    if (
+      !Number.isFinite(durationMinutes) ||
+      durationMinutes <= 0 ||
+      durationMinutes > 8 * 60
+    ) {
+      throw new BadRequestException(
+        'Duração total inválida (entre 1 e 480 minutos).',
+      );
+    }
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
+    if (!dateMatch) {
+      throw new BadRequestException('Data inválida (use YYYY-MM-DD).');
+    }
+
+    const config = await this.establishmentService.getConfig(establishmentId);
+    const year = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]) - 1;
+    const day = Number(dateMatch[3]);
+    const dayStart = new Date(year, month, day, 0, 0, 0, 0);
+    const nextDayStart = new Date(year, month, day + 1, 0, 0, 0, 0);
+    const dayOfWeek = dayStart.getDay();
+
+    const hours = config.businessHours.find((h) => h.dayOfWeek === dayOfWeek);
+
+    if (!hours || !hours.isOpen) {
+      return {
+        date: dateString,
+        isOpen: false,
+        openTime: hours?.openTime ?? null,
+        closeTime: hours?.closeTime ?? null,
+        lunchStart: hours?.lunchStart ?? null,
+        lunchEnd: hours?.lunchEnd ?? null,
+        durationMinutes,
+        slots: [],
+      };
+    }
+
+    const existing = await this.bookingRepo
+      .createQueryBuilder('b')
+      .leftJoin('b.bookingServices', 'bs')
+      .leftJoin('bs.service', 's')
+      .select('b.id', 'id')
+      .addSelect('b.scheduled_at', 'scheduledAt')
+      .addSelect('COALESCE(SUM(s.duration_minutes), 0)', 'duration')
+      .where('b.establishment_id = :est', { est: establishmentId })
+      .andWhere('b.scheduled_at >= :start AND b.scheduled_at < :end', {
+        start: dayStart.toISOString(),
+        end: nextDayStart.toISOString(),
+      })
+      .andWhere('b.status IN (:...statuses)', {
+        statuses: [BookingStatus.PENDING, BookingStatus.CONFIRMED],
+      })
+      .groupBy('b.id, b.scheduled_at')
+      .getRawMany<{ id: string; scheduledAt: string; duration: string }>();
+
+    const existingIntervals = existing.map((e) => {
+      const start = new Date(e.scheduledAt);
+      const end = new Date(start.getTime() + Number(e.duration) * 60_000);
+      return { start, end };
+    });
+
+    const toMin = (hhmm: string): number => {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const fmtMin = (mins: number): string => {
+      const h = Math.floor(mins / 60)
+        .toString()
+        .padStart(2, '0');
+      const m = (mins % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+    };
+
+    const SLOT_STEP = 30;
+    const openMin = toMin(hours.openTime);
+    const closeMin = toMin(hours.closeTime);
+    const lunchStartMin = hours.lunchStart ? toMin(hours.lunchStart) : null;
+    const lunchEndMin = hours.lunchEnd ? toMin(hours.lunchEnd) : null;
+    const now = new Date();
+    const minDaysCutoff = new Date(
+      now.getTime() + config.minDaysForOnlineUpdate * 86_400_000,
+    );
+
+    const slots: AvailabilitySlot[] = [];
+    for (
+      let startMin = openMin;
+      startMin + durationMinutes <= closeMin;
+      startMin += SLOT_STEP
+    ) {
+      const endMin = startMin + durationMinutes;
+      const slotStart = new Date(
+        year,
+        month,
+        day,
+        Math.floor(startMin / 60),
+        startMin % 60,
+        0,
+        0,
+      );
+      const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60_000);
+
+      let reason: SlotUnavailableReason | undefined;
+
+      if (slotStart.getTime() <= now.getTime()) {
+        reason = 'PAST';
+      } else if (!isAdmin && slotStart.getTime() < minDaysCutoff.getTime()) {
+        reason = 'TOO_SOON';
+      } else if (
+        lunchStartMin !== null &&
+        lunchEndMin !== null &&
+        startMin < lunchEndMin &&
+        endMin > lunchStartMin
+      ) {
+        reason = 'LUNCH';
+      } else if (
+        existingIntervals.some((i) => slotStart < i.end && slotEnd > i.start)
+      ) {
+        reason = 'OCCUPIED';
+      }
+
+      slots.push({
+        time: fmtMin(startMin),
+        startsAt: slotStart.toISOString(),
+        available: !reason,
+        reason,
+      });
+    }
+
+    return {
+      date: dateString,
+      isOpen: true,
+      openTime: hours.openTime,
+      closeTime: hours.closeTime,
+      lunchStart: hours.lunchStart,
+      lunchEnd: hours.lunchEnd,
+      durationMinutes,
+      slots,
     };
   }
 
@@ -441,6 +605,7 @@ export class BookingsService {
 
   private validateBusinessHours(
     scheduledDate: Date,
+    durationMinutes: number,
     hoursArray: BusinessHours[],
   ): void {
     const dayOfWeek = scheduledDate.getDay();
@@ -454,24 +619,36 @@ export class BookingsService {
       const [h, m] = hhmm.split(':').map(Number);
       return h * 60 + m;
     };
-    const scheduledMinutes =
-      scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
+    const fmtMin = (mins: number): string => {
+      const h = Math.floor(mins / 60)
+        .toString()
+        .padStart(2, '0');
+      const m = (mins % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+    };
 
-    if (
-      scheduledMinutes < toMin(hours.openTime) ||
-      scheduledMinutes >= toMin(hours.closeTime)
-    ) {
+    const startMin = scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
+    const endMin = startMin + durationMinutes;
+    const openMin = toMin(hours.openTime);
+    const closeMin = toMin(hours.closeTime);
+
+    if (startMin < openMin || startMin >= closeMin) {
       throw new BadRequestException(
-        `Horário fora do funcionamento do salão (${hours.openTime}–${hours.closeTime})`,
+        `Horário fora do funcionamento do salão (${hours.openTime}–${hours.closeTime}).`,
+      );
+    }
+    if (endMin > closeMin) {
+      throw new BadRequestException(
+        `Horário fora do funcionamento: o serviço terminaria às ${fmtMin(endMin)} e o salão fecha às ${hours.closeTime}.`,
       );
     }
     if (hours.lunchStart && hours.lunchEnd) {
-      if (
-        scheduledMinutes >= toMin(hours.lunchStart) &&
-        scheduledMinutes < toMin(hours.lunchEnd)
-      ) {
+      const lunchStartMin = toMin(hours.lunchStart);
+      const lunchEndMin = toMin(hours.lunchEnd);
+      // Overlap if [start,end) intersects [lunchStart,lunchEnd)
+      if (startMin < lunchEndMin && endMin > lunchStartMin) {
         throw new BadRequestException(
-          `Horário de almoço (${hours.lunchStart}–${hours.lunchEnd}). Escolha outro horário.`,
+          `O serviço atravessa o horário de almoço (${hours.lunchStart}–${hours.lunchEnd}).`,
         );
       }
     }
@@ -601,8 +778,39 @@ export class BookingsService {
           name: bs.service.name,
           price: bs.service.price,
           durationMinutes: bs.service.durationMinutes,
+          status: bs.status,
         })) ?? [],
     }));
+  }
+
+  async updateBookingServiceStatus(
+    bookingId: string,
+    serviceId: string,
+    establishmentId: string,
+    status: BookingServiceStatus,
+  ): Promise<BookingWithServices> {
+    const booking = await this.bookingRepo.findOne({
+      where: { id: bookingId, establishmentId },
+    });
+    if (!booking) {
+      throw new NotFoundException('Agendamento não encontrado');
+    }
+
+    const bookingService = await this.bookingServiceRepo.findOne({
+      where: { bookingId, serviceId },
+    });
+    if (!bookingService) {
+      throw new NotFoundException('Serviço não encontrado neste agendamento');
+    }
+
+    bookingService.status = status;
+    await this.bookingServiceRepo.save(bookingService);
+
+    const result = await this.findById(bookingId, establishmentId);
+    if (!result) {
+      throw new NotFoundException('Agendamento não encontrado');
+    }
+    return result;
   }
 
   private getISOWeekStart(date: Date): Date {
