@@ -1,19 +1,25 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  BookingResponse,
+  EstablishmentConfig,
+  ServiceResponse,
+} from '@cabeleleila/contracts';
 import { DateTime } from 'luxon';
-import { StepsModule } from 'primeng/steps';
+import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
-import { ListboxModule } from 'primeng/listbox';
-import { DatePickerModule } from 'primeng/datepicker';
 import { CardModule } from 'primeng/card';
-import { MessageModule } from 'primeng/message';
+import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
-import { EstablishmentConfig, ServiceResponse } from '@cabeleleila/contracts';
-import { ServiceApiService } from '../../../core/services/service-api.service';
+import { ListboxModule } from 'primeng/listbox';
+import { MessageModule } from 'primeng/message';
+import { StepsModule } from 'primeng/steps';
+import { SALON_PHONE } from '../../../core/constants/establishment';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
+import { ServiceApiService } from '../../../core/services/service-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
 import {
@@ -21,9 +27,10 @@ import {
   isValidBusinessHour,
   toUtcISO,
 } from '../../../shared/utils/date.utils';
-import { BookingSuggestionDialogComponent } from '../booking-suggestion-dialog/booking-suggestion-dialog.component';
-import { BookingSuggestion } from '@cabeleleila/contracts';
-import { SALON_PHONE } from '../../../core/constants/establishment';
+import {
+  BookingSuggestionDialogComponent,
+  SameWeekChoice,
+} from '../booking-suggestion-dialog/booking-suggestion-dialog.component';
 
 @Component({
   selector: 'app-booking-new',
@@ -171,8 +178,9 @@ import { SALON_PHONE } from '../../../core/constants/establishment';
               label="Próximo"
               icon="pi pi-arrow-right"
               iconPos="right"
+              [loading]="checkingSameWeek()"
               [disabled]="!selectedDate || !!dateError()"
-              (onClick)="goToStep(2)"
+              (onClick)="advanceFromDateStep()"
             />
           </div>
         </p-card>
@@ -237,9 +245,10 @@ import { SALON_PHONE } from '../../../core/constants/establishment';
 
       <app-booking-suggestion-dialog
         [visible]="suggestionVisible()"
-        [suggestion]="suggestion()"
+        [existing]="sameWeekExisting()"
+        [newServiceNames]="selectedServiceNames"
         (dismissed)="onSuggestionDismissed()"
-        (viewExisting)="onViewExisting($event)"
+        (decided)="onSuggestionDecision($event)"
       />
     </div>
   `,
@@ -249,6 +258,7 @@ export class BookingNewComponent implements OnInit {
   private readonly serviceApi = inject(ServiceApiService);
   private readonly bookingApi = inject(BookingApiService);
   private readonly establishmentApi = inject(EstablishmentApiService);
+  private readonly messageService = inject(MessageService);
 
   readonly services = toSignal(this.serviceApi.getServices());
   readonly config = signal<EstablishmentConfig | null>(null);
@@ -256,10 +266,11 @@ export class BookingNewComponent implements OnInit {
 
   readonly activeStep = signal(0);
   readonly loading = signal(false);
+  readonly checkingSameWeek = signal(false);
   readonly submitError = signal<string | null>(null);
   readonly dateError = signal<string | null>(null);
   readonly suggestionVisible = signal(false);
-  readonly suggestion = signal<BookingSuggestion | null>(null);
+  readonly sameWeekExisting = signal<BookingResponse | null>(null);
 
   selectedServices: ServiceResponse[] = [];
   selectedDate: Date | null = null;
@@ -302,6 +313,10 @@ export class BookingNewComponent implements OnInit {
     return this.selectedServices.reduce((s, sv) => s + sv.durationMinutes, 0);
   }
 
+  get selectedServiceNames(): string[] {
+    return this.selectedServices.map((s) => s.name);
+  }
+
   readonly steps = [
     { label: 'Serviços' },
     { label: 'Data/Hora' },
@@ -337,6 +352,89 @@ export class BookingNewComponent implements OnInit {
     );
   }
 
+  advanceFromDateStep(): void {
+    if (!this.selectedDate || this.dateError()) return;
+    this.checkingSameWeek.set(true);
+
+    this.bookingApi.checkSameWeek(toUtcISO(this.selectedDate)).subscribe({
+      next: (existing) => {
+        this.checkingSameWeek.set(false);
+        if (existing) {
+          this.sameWeekExisting.set(existing);
+          this.suggestionVisible.set(true);
+        } else {
+          this.goToStep(2);
+        }
+      },
+      error: () => {
+        // If the check fails, don't block the flow — proceed to confirmation
+        this.checkingSameWeek.set(false);
+        this.goToStep(2);
+      },
+    });
+  }
+
+  onSuggestionDismissed(): void {
+    this.suggestionVisible.set(false);
+  }
+
+  onSuggestionDecision(choice: SameWeekChoice): void {
+    this.suggestionVisible.set(false);
+    const existing = this.sameWeekExisting();
+
+    if (choice === 'go-to-existing' && existing) {
+      this.router.navigate(['/bookings', existing.id]);
+      return;
+    }
+
+    if (choice === 'merge' && existing) {
+      this.mergeIntoExisting(existing);
+      return;
+    }
+
+    // 'keep-new' → continue with the new booking flow
+    this.goToStep(2);
+  }
+
+  private mergeIntoExisting(existing: BookingResponse): void {
+    const existingIds = existing.services.map((s) => s.id);
+    const mergedIds = Array.from(
+      new Set([...existingIds, ...this.selectedServices.map((s) => s.id)]),
+    );
+
+    this.loading.set(true);
+
+    this.bookingApi
+      .updateBooking(existing.id, { serviceIds: mergedIds })
+      .subscribe({
+        next: () => {
+          this.loading.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Agendamento atualizado',
+            detail:
+              'Os novos serviços foram adicionados ao agendamento existente.',
+          });
+          this.router.navigate(['/bookings', existing.id]);
+        },
+        error: (err) => {
+          this.loading.set(false);
+          const msg: string =
+            err.error?.message ??
+            'Não foi possível adicionar os serviços ao agendamento existente.';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Erro',
+            detail: msg.toLowerCase().includes('antecedência')
+              ? `${msg} Ligue: ${this.salonPhone}`
+              : msg,
+          });
+          // Reopen the dialog so the user can choose another option
+          this.suggestionVisible.set(true);
+        },
+      });
+  }
+
   submit(): void {
     if (!this.selectedDate || this.selectedServices.length === 0) return;
     this.loading.set(true);
@@ -348,22 +446,19 @@ export class BookingNewComponent implements OnInit {
     };
 
     this.bookingApi.createBooking(dto).subscribe({
-      next: (res) => {
+      next: () => {
         this.loading.set(false);
-        if (res.suggestion?.hasSameWeekBooking) {
-          this.suggestion.set(res.suggestion);
-          this.suggestionVisible.set(true);
-        } else {
-          this.router.navigate(['/bookings']);
-        }
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Agendamento criado',
+          detail: 'Aguardando confirmação do salão.',
+        });
+        this.router.navigate(['/bookings']);
       },
       error: (err) => {
         this.loading.set(false);
         const msg: string = err.error?.message ?? 'Erro ao criar agendamento.';
-        if (
-          msg.toLowerCase().includes('dias de antecedência') ||
-          msg.toLowerCase().includes('antecedência')
-        ) {
+        if (msg.toLowerCase().includes('antecedência')) {
           this.submitError.set(
             `${msg} Para datas mais próximas, ligue: ${this.salonPhone}`,
           );
@@ -375,15 +470,5 @@ export class BookingNewComponent implements OnInit {
         }
       },
     });
-  }
-
-  onSuggestionDismissed(): void {
-    this.suggestionVisible.set(false);
-    this.router.navigate(['/bookings']);
-  }
-
-  onViewExisting(id: string): void {
-    this.suggestionVisible.set(false);
-    this.router.navigate(['/bookings', id]);
   }
 }

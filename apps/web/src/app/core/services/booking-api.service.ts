@@ -40,6 +40,12 @@ export class BookingApiService {
     return this.http.get<BookingResponse>(`${this.base}/${id}`);
   }
 
+  checkSameWeek(dateIso: string) {
+    return this.http.get<BookingResponse | null>(`${this.base}/same-week`, {
+      params: new HttpParams().set('date', dateIso),
+    });
+  }
+
   updateBooking(id: string, dto: UpdateBookingRequest) {
     return this.http.patch<BookingResponse>(`${this.base}/${id}`, dto);
   }

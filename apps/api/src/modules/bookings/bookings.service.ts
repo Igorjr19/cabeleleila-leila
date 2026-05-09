@@ -536,19 +536,11 @@ export class BookingsService {
     customerId: string,
     scheduledDate: Date,
   ): Promise<BookingSuggestion> {
-    const existing = await this.bookingRepo
-      .createQueryBuilder('b')
-      .where('b.establishment_id = :establishmentId', { establishmentId })
-      .andWhere('b.customer_id = :customerId', { customerId })
-      .andWhere('b.status IN (:...statuses)', {
-        statuses: [BookingStatus.PENDING, BookingStatus.CONFIRMED],
-      })
-      .andWhere(
-        `DATE_TRUNC('week', b.scheduled_at) = DATE_TRUNC('week', :scheduledAt::timestamptz)`,
-        { scheduledAt: scheduledDate.toISOString() },
-      )
-      .orderBy('b.scheduled_at', 'ASC')
-      .getOne();
+    const existing = await this.findSameWeekBooking(
+      establishmentId,
+      customerId,
+      scheduledDate,
+    );
 
     if (existing) {
       return {
@@ -563,6 +555,40 @@ export class BookingsService {
       suggestedDate: null,
       existingBookingId: null,
     };
+  }
+
+  async findSameWeekBookingForCustomer(
+    customerId: string,
+    establishmentId: string,
+    targetDate: Date,
+  ): Promise<BookingWithServices | null> {
+    const existing = await this.findSameWeekBooking(
+      establishmentId,
+      customerId,
+      targetDate,
+    );
+    if (!existing) return null;
+    return this.findById(existing.id, establishmentId);
+  }
+
+  private findSameWeekBooking(
+    establishmentId: string,
+    customerId: string,
+    scheduledDate: Date,
+  ): Promise<Booking | null> {
+    return this.bookingRepo
+      .createQueryBuilder('b')
+      .where('b.establishment_id = :establishmentId', { establishmentId })
+      .andWhere('b.customer_id = :customerId', { customerId })
+      .andWhere('b.status IN (:...statuses)', {
+        statuses: [BookingStatus.PENDING, BookingStatus.CONFIRMED],
+      })
+      .andWhere(
+        `DATE_TRUNC('week', b.scheduled_at) = DATE_TRUNC('week', :scheduledAt::timestamptz)`,
+        { scheduledAt: scheduledDate.toISOString() },
+      )
+      .orderBy('b.scheduled_at', 'ASC')
+      .getOne();
   }
 
   private mapBookingsWithServices(bookings: Booking[]): BookingWithServices[] {

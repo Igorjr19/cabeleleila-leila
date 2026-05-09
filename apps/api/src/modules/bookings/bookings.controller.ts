@@ -95,6 +95,41 @@ export class BookingsController {
     }));
   }
 
+  @Get('same-week')
+  @ApiOperation({
+    summary: 'Verificar agendamento existente na mesma semana',
+    description:
+      'Retorna o agendamento ativo (PENDING/CONFIRMED) do cliente autenticado na mesma semana ISO da data informada, ou null caso não exista.',
+  })
+  @ApiQuery({
+    name: 'date',
+    required: true,
+    description: 'Data alvo em ISO 8601 (UTC)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking existente na mesma semana, ou null',
+    type: BookingResponseDto,
+  })
+  async checkSameWeek(
+    @CurrentUser() user: JwtPayload,
+    @Query('date') date: string,
+  ): Promise<BookingResponseDto | null> {
+    const target = new Date(date);
+    const result = await this.bookingsService.findSameWeekBookingForCustomer(
+      user.sub,
+      user.establishmentId,
+      target,
+    );
+    if (!result) return null;
+    return {
+      ...result,
+      scheduledAt: result.scheduledAt.toISOString(),
+      createdAt: result.createdAt.toISOString(),
+      services: result.services || [],
+    };
+  }
+
   @Get('dashboard/weekly')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
