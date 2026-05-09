@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import * as path from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -22,6 +23,8 @@ import { UsersModule } from './modules/users/users.module';
       migrations: [__dirname + '/database/migrations/*.{js,ts}'],
       migrationsRun: true,
       logging: process.env.NODE_ENV === 'development',
+      migrations: [path.join(__dirname, 'database/migrations/*.{ts,js}')],
+      migrationsRun: true,
     }),
     AuthModule,
     UsersModule,
