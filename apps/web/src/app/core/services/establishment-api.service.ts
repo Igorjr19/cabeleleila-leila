@@ -1,26 +1,7 @@
-import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { EstablishmentConfig } from '@cabeleleila/contracts';
 import { environment } from '../../../environments/environment';
-
-export interface BusinessHours {
-  open: string;
-  close: string;
-  lunchStart: string;
-  lunchEnd: string;
-}
-
-export interface EstablishmentConfig {
-  min_days_for_online_update: number;
-  business_hours: BusinessHours;
-}
-
-export interface EstablishmentResponse {
-  id: string;
-  name: string;
-  cnpj: string;
-  config: EstablishmentConfig;
-  createdAt: string;
-}
 
 @Injectable({ providedIn: 'root' })
 export class EstablishmentApiService {
@@ -28,10 +9,10 @@ export class EstablishmentApiService {
   private readonly base = `${environment.apiUrl}/establishment`;
 
   getConfig() {
-    return this.http.get<EstablishmentResponse>(`${this.base}/config`);
+    return this.http.get<EstablishmentConfig>(`${this.base}/config`);
   }
 
   updateConfig(dto: EstablishmentConfig) {
-    return this.http.patch<EstablishmentResponse>(`${this.base}/config`, dto);
+    return this.http.patch<EstablishmentConfig>(`${this.base}/config`, dto);
   }
 }

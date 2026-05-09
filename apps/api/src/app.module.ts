@@ -19,6 +19,8 @@ import { UsersModule } from './modules/users/users.module';
       database: process.env.DB_NAME ?? 'cabeleleila_db',
       synchronize: false,
       autoLoadEntities: true,
+      migrations: [__dirname + '/database/migrations/*.{js,ts}'],
+      migrationsRun: true,
       logging: process.env.NODE_ENV === 'development',
     }),
     AuthModule,

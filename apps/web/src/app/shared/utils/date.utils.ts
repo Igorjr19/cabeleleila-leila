@@ -1,5 +1,5 @@
+import { BusinessHours } from '@cabeleleila/contracts';
 import { DateTime } from 'luxon';
-import { BusinessHours } from '../../core/services/establishment-api.service';
 
 export const SP_TZ = 'America/Sao_Paulo';
 
@@ -30,24 +30,36 @@ export interface BusinessHourValidation {
   reason?: string;
 }
 
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
 export function isValidBusinessHour(
   dt: DateTime,
-  hours: BusinessHours,
+  hoursArray: BusinessHours[],
 ): BusinessHourValidation {
-  const toMin = (hhmm: string): number => {
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-  };
+  const dayOfWeek = dt.weekday % 7; // luxon: 1=Mon..7=Sun → JS: 1=Mon..0=Sun
+  const hours = hoursArray.find((h) => h.dayOfWeek === dayOfWeek);
+
+  if (!hours || !hours.isOpen) {
+    return { valid: false, reason: 'Salão fechado neste dia da semana' };
+  }
 
   const mins = dt.hour * 60 + dt.minute;
 
-  if (mins < toMin(hours.open) || mins >= toMin(hours.close)) {
+  if (mins < toMinutes(hours.openTime) || mins >= toMinutes(hours.closeTime)) {
     return {
       valid: false,
-      reason: `Horário fora do expediente (${hours.open}–${hours.close})`,
+      reason: `Horário fora do expediente (${hours.openTime}–${hours.closeTime})`,
     };
   }
-  if (mins >= toMin(hours.lunchStart) && mins < toMin(hours.lunchEnd)) {
+  if (
+    hours.lunchStart &&
+    hours.lunchEnd &&
+    mins >= toMinutes(hours.lunchStart) &&
+    mins < toMinutes(hours.lunchEnd)
+  ) {
     return {
       valid: false,
       reason: `Horário de almoço (${hours.lunchStart}–${hours.lunchEnd})`,

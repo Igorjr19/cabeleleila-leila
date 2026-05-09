@@ -1,17 +1,12 @@
 import { DataSource } from 'typeorm';
 import { Service } from '../../modules/services/entities/service.entity';
 
-/**
- * Serviços padrão da Cabeleleila Leila
- * Este seed é executado automaticamente quando a aplicação inicia
- */
 export async function seedServices(dataSource: DataSource) {
   const serviceRepository = dataSource.getRepository(Service);
 
   // UUID padrão para o estabelecimento
   const establishmentId = '550e8400-e29b-41d4-a716-446655440000';
 
-  // Verificar se já existem serviços
   const existingServices = await serviceRepository.find({
     where: { establishmentId },
   });
@@ -21,7 +16,6 @@ export async function seedServices(dataSource: DataSource) {
     return;
   }
 
-  // Definir serviços padrão
   const services = [
     {
       establishmentId,
@@ -76,7 +70,5 @@ export async function seedServices(dataSource: DataSource) {
   const serviceEntities = serviceRepository.create(services);
   await serviceRepository.save(serviceEntities);
 
-  console.log(
-    `✓ ${services.length} serviços criados com sucesso na Cabeleleila Leila!`,
-  );
+  console.log(`✓ ${services.length} serviços criados com sucesso!`);
 }

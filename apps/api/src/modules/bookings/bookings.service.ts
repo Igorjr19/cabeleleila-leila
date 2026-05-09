@@ -1,4 +1,8 @@
-import { BookingSuggestion, WeeklyStats } from '@cabeleleila/contracts';
+import {
+  BookingSuggestion,
+  BusinessHours,
+  WeeklyStats,
+} from '@cabeleleila/contracts';
 import {
   BadRequestException,
   Injectable,
@@ -6,7 +10,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { BusinessHours } from '../establishment/entities/establishment.entity';
 import { EstablishmentService } from '../establishment/establishment.service';
 import { ServicesService } from '../services/services.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -43,13 +46,10 @@ export class BookingsService {
       throw new BadRequestException('Data de agendamento deve estar no futuro');
     }
 
-    this.validateBusinessHours(scheduledDate, config.business_hours);
+    this.validateBusinessHours(scheduledDate, config.businessHours);
 
     if (!isAdmin) {
-      this.validateMinDaysAhead(
-        scheduledDate,
-        config.min_days_for_online_update,
-      );
+      this.validateMinDaysAhead(scheduledDate, config.minDaysForOnlineUpdate);
     }
 
     const services = await this.servicesService.findByIdsAndEstablishment(
@@ -148,7 +148,7 @@ export class BookingsService {
     if (!isAdmin) {
       this.validateMinDaysAhead(
         booking.scheduledAt,
-        config.min_days_for_online_update,
+        config.minDaysForOnlineUpdate,
       );
     }
 
@@ -166,9 +166,9 @@ export class BookingsService {
       if (newDate <= new Date()) {
         throw new BadRequestException('Nova data deve estar no futuro');
       }
-      this.validateBusinessHours(newDate, config.business_hours);
+      this.validateBusinessHours(newDate, config.businessHours);
       if (!isAdmin) {
-        this.validateMinDaysAhead(newDate, config.min_days_for_online_update);
+        this.validateMinDaysAhead(newDate, config.minDaysForOnlineUpdate);
       }
 
       const durationServices =
@@ -369,7 +369,7 @@ export class BookingsService {
     const config = await this.establishmentService.getConfig(establishmentId);
     this.validateMinDaysAhead(
       booking.scheduledAt,
-      config.min_days_for_online_update,
+      config.minDaysForOnlineUpdate,
     );
 
     booking.status = BookingStatus.CANCELLED;
@@ -444,9 +444,9 @@ export class BookingsService {
     hoursArray: BusinessHours[],
   ): void {
     const dayOfWeek = scheduledDate.getDay();
-    const hours = hoursArray.find((h) => h.day_of_week === dayOfWeek);
+    const hours = hoursArray.find((h) => h.dayOfWeek === dayOfWeek);
 
-    if (!hours) {
+    if (!hours || !hours.isOpen) {
       throw new BadRequestException('Salão fechado neste dia da semana');
     }
 
@@ -458,20 +458,20 @@ export class BookingsService {
       scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
 
     if (
-      scheduledMinutes < toMin(hours.open_time) ||
-      scheduledMinutes >= toMin(hours.close_time)
+      scheduledMinutes < toMin(hours.openTime) ||
+      scheduledMinutes >= toMin(hours.closeTime)
     ) {
       throw new BadRequestException(
-        `Horário fora do funcionamento do salão (${hours.open_time}–${hours.close_time})`,
+        `Horário fora do funcionamento do salão (${hours.openTime}–${hours.closeTime})`,
       );
     }
-    if (hours.lunch_start && hours.lunch_end) {
+    if (hours.lunchStart && hours.lunchEnd) {
       if (
-        scheduledMinutes >= toMin(hours.lunch_start) &&
-        scheduledMinutes < toMin(hours.lunch_end)
+        scheduledMinutes >= toMin(hours.lunchStart) &&
+        scheduledMinutes < toMin(hours.lunchEnd)
       ) {
         throw new BadRequestException(
-          `Horário de almoço (${hours.lunch_start}–${hours.lunch_end}). Escolha outro horário.`,
+          `Horário de almoço (${hours.lunchStart}–${hours.lunchEnd}). Escolha outro horário.`,
         );
       }
     }

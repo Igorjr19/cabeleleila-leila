@@ -1,7 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -12,33 +15,37 @@ import {
 } from 'class-validator';
 
 export class BusinessHoursDto {
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ example: 1, description: '0=Domingo, 6=Sábado' })
   @IsInt()
   @Min(0)
   @Max(6)
-  day_of_week: number;
+  dayOfWeek: number;
 
-  @ApiProperty({ example: '08:00' })
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  isOpen: boolean;
+
+  @ApiProperty({ example: '09:00' })
   @IsString()
   @Matches(/^\d{2}:\d{2}$/, { message: 'Formato inválido. Use HH:mm' })
-  open_time: string;
+  openTime: string;
 
   @ApiProperty({ example: '18:00' })
   @IsString()
   @Matches(/^\d{2}:\d{2}$/, { message: 'Formato inválido. Use HH:mm' })
-  close_time: string;
+  closeTime: string;
 
-  @ApiPropertyOptional({ example: '12:00' })
+  @ApiPropertyOptional({ example: '12:00', nullable: true })
   @IsOptional()
   @IsString()
   @Matches(/^\d{2}:\d{2}$/, { message: 'Formato inválido. Use HH:mm' })
-  lunch_start: string | null;
+  lunchStart: string | null;
 
-  @ApiPropertyOptional({ example: '13:00' })
+  @ApiPropertyOptional({ example: '13:00', nullable: true })
   @IsOptional()
   @IsString()
   @Matches(/^\d{2}:\d{2}$/, { message: 'Formato inválido. Use HH:mm' })
-  lunch_end: string | null;
+  lunchEnd: string | null;
 }
 
 export class UpdateEstablishmentConfigDto {
@@ -49,11 +56,17 @@ export class UpdateEstablishmentConfigDto {
   @IsInt()
   @Min(1)
   @Max(30)
-  min_days_for_online_update: number;
+  minDaysForOnlineUpdate: number;
 
-  @ApiProperty({ type: [BusinessHoursDto] })
+  @ApiProperty({
+    type: [BusinessHoursDto],
+    description:
+      'Horário de funcionamento — exatamente 7 entradas (uma por dia da semana)',
+  })
   @IsArray()
+  @ArrayMinSize(7)
+  @ArrayMaxSize(7)
   @ValidateNested({ each: true })
   @Type(() => BusinessHoursDto)
-  business_hours: BusinessHoursDto[];
+  businessHours: BusinessHoursDto[];
 }

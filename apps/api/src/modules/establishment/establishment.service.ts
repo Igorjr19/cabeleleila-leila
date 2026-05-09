@@ -1,3 +1,4 @@
+import { DEFAULT_ESTABLISHMENT_CONFIG } from '@cabeleleila/contracts';
 import {
   BadRequestException,
   Injectable,
@@ -64,30 +65,19 @@ export class EstablishmentService {
     if (!establishment) {
       throw new NotFoundException('Estabelecimento não encontrado');
     }
-    if (!establishment.config) {
-      return {
-        min_days_for_online_update: 2,
-        business_hours: Array.from({ length: 7 }).map((_, i) => ({
-          day_of_week: i,
-          open_time: '08:00',
-          close_time: '18:00',
-          lunch_start: '12:00',
-          lunch_end: '13:00',
-        })),
-      };
-    }
-    return establishment.config;
+    return establishment.config ?? DEFAULT_ESTABLISHMENT_CONFIG;
   }
 
   async updateConfig(
     id: string,
     config: EstablishmentConfig,
-  ): Promise<Establishment> {
+  ): Promise<EstablishmentConfig> {
     const establishment = await this.findById(id);
     if (!establishment) {
       throw new NotFoundException('Estabelecimento não encontrado');
     }
     establishment.config = config;
-    return this.establishmentRepo.save(establishment);
+    const saved = await this.establishmentRepo.save(establishment);
+    return saved.config!;
   }
 }

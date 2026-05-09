@@ -1,3 +1,4 @@
+import { BusinessHours, EstablishmentConfig } from '@cabeleleila/contracts';
 import {
   Column,
   CreateDateColumn,
@@ -9,18 +10,7 @@ import { Booking } from '../../bookings/entities/booking.entity';
 import { Service } from '../../services/entities/service.entity';
 import { UserRole } from '../../users/entities/user-role.entity';
 
-export interface BusinessHours {
-  day_of_week: number;
-  open_time: string;
-  close_time: string;
-  lunch_start: string | null;
-  lunch_end: string | null;
-}
-
-export interface EstablishmentConfig {
-  min_days_for_online_update: number;
-  business_hours: BusinessHours[];
-}
+export type { BusinessHours, EstablishmentConfig };
 
 @Entity('establishments')
 export class Establishment {

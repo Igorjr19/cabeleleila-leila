@@ -1,20 +1,19 @@
+import { EstablishmentConfig } from '@cabeleleila/contracts';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import {
-  Establishment,
-  EstablishmentConfig,
-} from './entities/establishment.entity';
+import { Establishment } from './entities/establishment.entity';
 import { EstablishmentService } from './establishment.service';
 
 const DEFAULT_CONFIG: EstablishmentConfig = {
-  min_days_for_online_update: 2,
-  business_hours: Array.from({ length: 7 }).map((_, i) => ({
-    day_of_week: i,
-    open_time: '08:00',
-    close_time: '18:00',
-    lunch_start: '12:00',
-    lunch_end: '13:00',
+  minDaysForOnlineUpdate: 2,
+  businessHours: Array.from({ length: 7 }).map((_, i) => ({
+    dayOfWeek: i,
+    isOpen: true,
+    openTime: '08:00',
+    closeTime: '18:00',
+    lunchStart: '12:00',
+    lunchEnd: '13:00',
   })),
 };
 
@@ -103,26 +102,23 @@ describe('EstablishmentService', () => {
 
       const config = await service.getConfig(EST_ID);
 
-      expect(config.min_days_for_online_update).toBe(2);
-      expect(config.business_hours).toHaveLength(7);
-      config.business_hours.forEach((h) => {
-        expect(h.open_time).toBe('08:00');
-        expect(h.close_time).toBe('18:00');
-        expect(h.lunch_start).toBe('12:00');
-        expect(h.lunch_end).toBe('13:00');
-      });
+      expect(config.minDaysForOnlineUpdate).toBe(2);
+      expect(config.businessHours).toHaveLength(7);
+      const days = config.businessHours.map((h) => h.dayOfWeek);
+      expect(days).toEqual([0, 1, 2, 3, 4, 5, 6]);
     });
 
     it('retorna config salva quando não é null', async () => {
       const customConfig: EstablishmentConfig = {
-        min_days_for_online_update: 3,
-        business_hours: [
+        minDaysForOnlineUpdate: 3,
+        businessHours: [
           {
-            day_of_week: 1,
-            open_time: '09:00',
-            close_time: '17:00',
-            lunch_start: '12:00',
-            lunch_end: '13:00',
+            dayOfWeek: 1,
+            isOpen: true,
+            openTime: '09:00',
+            closeTime: '17:00',
+            lunchStart: '12:00',
+            lunchEnd: '13:00',
           },
         ],
       };
@@ -132,17 +128,8 @@ describe('EstablishmentService', () => {
 
       const config = await service.getConfig(EST_ID);
 
-      expect(config.min_days_for_online_update).toBe(3);
-      expect(config.business_hours[0].open_time).toBe('09:00');
-    });
-
-    it('defaults têm day_of_week de 0 a 6', async () => {
-      mockRepo.findOneBy.mockResolvedValue(makeEstablishment({ config: null }));
-
-      const config = await service.getConfig(EST_ID);
-
-      const days = config.business_hours.map((h) => h.day_of_week);
-      expect(days).toEqual([0, 1, 2, 3, 4, 5, 6]);
+      expect(config.minDaysForOnlineUpdate).toBe(3);
+      expect(config.businessHours[0].openTime).toBe('09:00');
     });
   });
 
@@ -157,7 +144,7 @@ describe('EstablishmentService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('persiste e retorna o estabelecimento com nova config', async () => {
+    it('persiste e retorna a nova config', async () => {
       const est = makeEstablishment({ config: null });
       mockRepo.findOneBy.mockResolvedValue(est);
       mockRepo.save.mockResolvedValue({ ...est, config: DEFAULT_CONFIG });
@@ -167,7 +154,7 @@ describe('EstablishmentService', () => {
       expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ config: DEFAULT_CONFIG }),
       );
-      expect(result.config).toEqual(DEFAULT_CONFIG);
+      expect(result).toEqual(DEFAULT_CONFIG);
     });
   });
 

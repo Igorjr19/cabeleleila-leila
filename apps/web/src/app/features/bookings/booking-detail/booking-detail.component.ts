@@ -1,7 +1,11 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BookingResponse, BookingStatus } from '@cabeleleila/contracts';
+import {
+  BookingResponse,
+  BookingStatus,
+  EstablishmentConfig,
+} from '@cabeleleila/contracts';
 import { DateTime } from 'luxon';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -13,10 +17,7 @@ import { MessageModule } from 'primeng/message';
 import { TagModule } from 'primeng/tag';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { BookingApiService } from '../../../core/services/booking-api.service';
-import {
-  EstablishmentApiService,
-  EstablishmentConfig,
-} from '../../../core/services/establishment-api.service';
+import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
 import {
@@ -198,9 +199,9 @@ export class BookingDetailComponent implements OnInit {
       },
     });
     this.establishmentApi.getConfig().subscribe({
-      next: (res) => {
-        this.config = res.config;
-        this.minDate = addDays(res.config.min_days_for_online_update);
+      next: (cfg) => {
+        this.config = cfg;
+        this.minDate = addDays(cfg.minDaysForOnlineUpdate);
       },
     });
   }
@@ -236,7 +237,7 @@ export class BookingDetailComponent implements OnInit {
     const dt = DateTime.fromJSDate(this.newDate).setZone('America/Sao_Paulo', {
       keepLocalTime: true,
     });
-    const result = isValidBusinessHour(dt, this.config.business_hours);
+    const result = isValidBusinessHour(dt, this.config.businessHours);
     this.dateError.set(
       result.valid ? null : (result.reason ?? 'Horário inválido'),
     );

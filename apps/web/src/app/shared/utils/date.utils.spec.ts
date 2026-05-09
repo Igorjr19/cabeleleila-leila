@@ -1,5 +1,5 @@
+import { BusinessHours } from '@cabeleleila/contracts';
 import { DateTime } from 'luxon';
-import { BusinessHours } from '../../core/services/establishment-api.service';
 import {
   SP_TZ,
   formatSP,
@@ -9,12 +9,28 @@ import {
   toUtcISO,
 } from './date.utils';
 
-const BUSINESS_HOURS: BusinessHours = {
-  open: '08:00',
-  close: '18:00',
-  lunchStart: '12:00',
-  lunchEnd: '13:00',
-};
+// 2026-04-04 is a Saturday → dayOfWeek = 6
+const BUSINESS_HOURS: BusinessHours[] = Array.from({ length: 7 }).map(
+  (_, dayOfWeek) => ({
+    dayOfWeek,
+    isOpen: true,
+    openTime: '08:00',
+    closeTime: '18:00',
+    lunchStart: '12:00',
+    lunchEnd: '13:00',
+  }),
+);
+
+const CLOSED_ALL_WEEK: BusinessHours[] = Array.from({ length: 7 }).map(
+  (_, dayOfWeek) => ({
+    dayOfWeek,
+    isOpen: false,
+    openTime: '08:00',
+    closeTime: '18:00',
+    lunchStart: null,
+    lunchEnd: null,
+  }),
+);
 
 describe('date.utils', () => {
   // ── toSP() ──────────────────────────────────────────────────────────────────
@@ -153,6 +169,12 @@ describe('date.utils', () => {
     it('fora do expediente à noite é inválido', () => {
       const result = isValidBusinessHour(dt(20, 0), BUSINESS_HOURS);
       expect(result.valid).toBe(false);
+    });
+
+    it('dia marcado como fechado (isOpen=false) retorna inválido', () => {
+      const result = isValidBusinessHour(dt(10, 0), CLOSED_ALL_WEEK);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toMatch(/fechado/i);
     });
   });
 

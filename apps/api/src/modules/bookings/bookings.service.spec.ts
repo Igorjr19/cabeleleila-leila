@@ -1,8 +1,8 @@
+import { EstablishmentConfig } from '@cabeleleila/contracts';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { EstablishmentConfig } from '../establishment/entities/establishment.entity';
 import { EstablishmentService } from '../establishment/establishment.service';
 import { ServicesService } from '../services/services.service';
 import { BookingsService } from './bookings.service';
@@ -11,13 +11,14 @@ import { BookingService } from './entities/booking-service.entity';
 import { Booking, BookingStatus } from './entities/booking.entity';
 
 const DEFAULT_CONFIG: EstablishmentConfig = {
-  min_days_for_online_update: 2,
-  business_hours: Array.from({ length: 7 }).map((_, i) => ({
-    day_of_week: i,
-    open_time: '08:00',
-    close_time: '18:00',
-    lunch_start: '12:00',
-    lunch_end: '13:00',
+  minDaysForOnlineUpdate: 2,
+  businessHours: Array.from({ length: 7 }).map((_, i) => ({
+    dayOfWeek: i,
+    isOpen: true,
+    openTime: '08:00',
+    closeTime: '18:00',
+    lunchStart: '12:00',
+    lunchEnd: '13:00',
   })),
 };
 

@@ -10,13 +10,10 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { CardModule } from 'primeng/card';
 import { MessageModule } from 'primeng/message';
 import { DividerModule } from 'primeng/divider';
-import { ServiceResponse } from '@cabeleleila/contracts';
+import { EstablishmentConfig, ServiceResponse } from '@cabeleleila/contracts';
 import { ServiceApiService } from '../../../core/services/service-api.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
-import {
-  EstablishmentApiService,
-  EstablishmentConfig,
-} from '../../../core/services/establishment-api.service';
+import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
 import {
@@ -149,14 +146,17 @@ import { SALON_PHONE } from '../../../core/constants/establishment';
               <p-message severity="error" [text]="dateError()!" />
             }
 
-            @if (config()) {
+            @if (selectedDayHours(); as hours) {
               <p class="text-sm text-color-secondary m-0">
-                Horário de atendimento: {{ config()!.business_hours.open }}–{{
-                  config()!.business_hours.close
-                }}
-                (almoço {{ config()!.business_hours.lunchStart }}–{{
-                  config()!.business_hours.lunchEnd
-                }})
+                @if (hours.isOpen) {
+                  Atendimento {{ dayLabel(hours.dayOfWeek) }}:
+                  {{ hours.openTime }}–{{ hours.closeTime }}
+                  @if (hours.lunchStart && hours.lunchEnd) {
+                    (almoço {{ hours.lunchStart }}–{{ hours.lunchEnd }})
+                  }
+                } @else {
+                  Salão fechado em {{ dayLabel(hours.dayOfWeek) }}.
+                }
               </p>
             }
           </div>
@@ -265,9 +265,34 @@ export class BookingNewComponent implements OnInit {
   selectedDate: Date | null = null;
 
   readonly minDate = computed(() => {
-    const minDays = this.config()?.min_days_for_online_update ?? 2;
+    const minDays = this.config()?.minDaysForOnlineUpdate ?? 2;
     return addDays(minDays);
   });
+
+  readonly selectedDayHours = computed(() => {
+    const cfg = this.config();
+    const date = this.selectedDate;
+    if (!cfg || !date) return null;
+    const dt = DateTime.fromJSDate(date).setZone('America/Sao_Paulo', {
+      keepLocalTime: true,
+    });
+    const dayOfWeek = dt.weekday % 7;
+    return cfg.businessHours.find((h) => h.dayOfWeek === dayOfWeek) ?? null;
+  });
+
+  private readonly dayLabels = [
+    'domingo',
+    'segunda',
+    'terça',
+    'quarta',
+    'quinta',
+    'sexta',
+    'sábado',
+  ];
+
+  dayLabel(dayOfWeek: number): string {
+    return this.dayLabels[dayOfWeek] ?? '';
+  }
 
   get totalPrice(): number {
     return this.selectedServices.reduce((s, sv) => s + sv.price, 0);
@@ -288,7 +313,7 @@ export class BookingNewComponent implements OnInit {
 
   ngOnInit(): void {
     this.establishmentApi.getConfig().subscribe({
-      next: (res) => this.config.set(res.config),
+      next: (cfg) => this.config.set(cfg),
       error: () => this.configError.set(true),
     });
   }
@@ -306,7 +331,7 @@ export class BookingNewComponent implements OnInit {
       'America/Sao_Paulo',
       { keepLocalTime: true },
     );
-    const result = isValidBusinessHour(dt, cfg.business_hours);
+    const result = isValidBusinessHour(dt, cfg.businessHours);
     this.dateError.set(
       result.valid ? null : (result.reason ?? 'Horário inválido'),
     );
