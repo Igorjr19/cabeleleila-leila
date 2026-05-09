@@ -12,4 +12,6 @@ export class ServiceResponseDto implements ServiceResponse {
   price: number;
   @ApiProperty()
   durationMinutes: number;
+  @ApiProperty()
+  active: boolean;
 }

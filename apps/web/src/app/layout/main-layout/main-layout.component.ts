@@ -61,6 +61,13 @@ import { AuthService } from '../../core/services/auth.service';
             <a
               pButton
               text
+              routerLink="/admin/time-blocks"
+              routerLinkActive="p-button-outlined"
+              label="Bloqueios"
+            ></a>
+            <a
+              pButton
+              text
               routerLink="/admin/establishment"
               routerLinkActive="p-button-outlined"
               label="Configurações"
@@ -133,6 +140,14 @@ import { AuthService } from '../../core/services/auth.service';
                 class="w-full justify-content-start"
                 routerLink="/admin/services"
                 label="Serviços"
+                (click)="mobileMenuOpen = false"
+              ></a>
+              <a
+                pButton
+                text
+                class="w-full justify-content-start"
+                routerLink="/admin/time-blocks"
+                label="Bloqueios"
                 (click)="mobileMenuOpen = false"
               ></a>
               <a

@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { EstablishmentModule } from './modules/establishment/establishment.module';
 import { ServicesModule } from './modules/services/services.module';
+import { TimeBlocksModule } from './modules/time-blocks/time-blocks.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { UsersModule } from './modules/users/users.module';
     EstablishmentModule,
     ServicesModule,
     BookingsModule,
+    TimeBlocksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

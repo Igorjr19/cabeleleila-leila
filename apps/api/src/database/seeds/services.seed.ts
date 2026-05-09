@@ -65,6 +65,24 @@ export async function seedServices(dataSource: DataSource) {
       price: 200.0,
       durationMinutes: 180,
     },
+    {
+      establishmentId,
+      name: 'Combo Escova + Hidratação',
+      price: 95.0,
+      durationMinutes: 75,
+    },
+    {
+      establishmentId,
+      name: 'Combo Corte + Hidratação',
+      price: 115.0,
+      durationMinutes: 90,
+    },
+    {
+      establishmentId,
+      name: 'Dia da Noiva (Corte Premium + Escova + Hidratação)',
+      price: 215.0,
+      durationMinutes: 165,
+    },
   ];
 
   const serviceEntities = serviceRepository.create(services);

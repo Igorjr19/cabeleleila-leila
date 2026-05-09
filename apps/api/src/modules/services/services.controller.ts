@@ -59,13 +59,17 @@ export class ServicesController {
   @ApiOperation({ summary: 'Listar serviços do estabelecimento' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de serviços',
+    description: 'Lista de serviços (admin vê inativos também)',
     type: [ServiceResponseDto],
   })
   findByEstablishment(
     @CurrentUser() user: JwtPayload,
   ): Promise<ServiceResponseDto[]> {
-    return this.servicesService.findByEstablishment(user.establishmentId);
+    const isAdmin = user.role === Role.ADMIN;
+    return this.servicesService.findByEstablishment(
+      user.establishmentId,
+      isAdmin,
+    );
   }
 
   @Get(':id')
@@ -81,6 +85,31 @@ export class ServicesController {
     @Param('id') id: string,
   ): Promise<ServiceResponseDto | null> {
     return this.servicesService.findById(id, user.establishmentId);
+  }
+
+  @Patch(':id/active')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Ativar/desativar serviço (Admin)',
+    description:
+      'Serviços inativos não aparecem para clientes mas mantêm o histórico.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Serviço atualizado',
+    type: ServiceResponseDto,
+  })
+  setActive(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: { active: boolean },
+  ): Promise<ServiceResponseDto> {
+    return this.servicesService.setActive(
+      id,
+      user.establishmentId,
+      !!dto.active,
+    );
   }
 
   @Patch(':id')

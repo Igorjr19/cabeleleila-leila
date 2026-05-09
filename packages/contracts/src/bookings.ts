@@ -2,9 +2,8 @@ import { BookingStatus } from './common';
 
 export enum BookingServiceStatus {
   PENDING = 'PENDING',
-  IN_PROGRESS = 'IN_PROGRESS',
-  DONE = 'DONE',
-  SKIPPED = 'SKIPPED',
+  CONFIRMED = 'CONFIRMED',
+  DECLINED = 'DECLINED',
 }
 
 export interface ServiceSummary {
@@ -62,7 +61,8 @@ export type SlotUnavailableReason =
   | 'OCCUPIED'
   | 'PAST'
   | 'TOO_SOON'
-  | 'CLOSING';
+  | 'CLOSING'
+  | 'BLOCKED';
 
 export interface AvailabilitySlot {
   /** Wall-clock start "HH:mm" in salon timezone. */

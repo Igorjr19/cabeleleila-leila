@@ -184,19 +184,20 @@ describe('ServicesService', () => {
       );
     });
 
-    it('lança BadRequestException quando há agendamentos vinculados', async () => {
+    it('faz soft-delete (active=false) quando há agendamentos vinculados', async () => {
       const svc = makeService({
+        active: true,
         bookingServices: [{ id: 'bs-1' } as any],
       });
       mockRepo.findOne.mockResolvedValue(svc);
+      mockRepo.save.mockResolvedValue({ ...svc, active: false });
 
-      await expect(service.remove(SVC_ID, EST_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.remove(SVC_ID, EST_ID)).resolves.not.toThrow();
 
-      await expect(service.remove(SVC_ID, EST_ID)).rejects.toThrow(
-        'agendamentos vinculados',
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ active: false }),
       );
+      expect(mockRepo.remove).not.toHaveBeenCalled();
     });
 
     it('remove com sucesso quando não há agendamentos', async () => {

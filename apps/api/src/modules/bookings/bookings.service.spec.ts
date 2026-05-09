@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EstablishmentService } from '../establishment/establishment.service';
 import { ServicesService } from '../services/services.service';
+import { TimeBlocksService } from '../time-blocks/time-blocks.service';
 import { BookingsService } from './bookings.service';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { BookingService } from './entities/booking-service.entity';
@@ -72,6 +73,10 @@ describe('BookingsService', () => {
     getConfig: jest.fn().mockResolvedValue(DEFAULT_CONFIG),
   };
 
+  const mockTimeBlocksService = {
+    findInRange: jest.fn().mockResolvedValue([]),
+  };
+
   const mockEntityManager = {
     create: jest.fn((entity: unknown, data: Record<string, unknown>) => ({
       ...data,
@@ -115,6 +120,7 @@ describe('BookingsService', () => {
         },
         { provide: ServicesService, useValue: mockServicesService },
         { provide: EstablishmentService, useValue: mockEstablishmentService },
+        { provide: TimeBlocksService, useValue: mockTimeBlocksService },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();

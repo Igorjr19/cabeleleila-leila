@@ -30,11 +30,29 @@ export class ServicesService {
     return this.serviceRepo.save(service);
   }
 
-  async findByEstablishment(establishmentId: string): Promise<Service[]> {
+  async findByEstablishment(
+    establishmentId: string,
+    includeInactive = false,
+  ): Promise<Service[]> {
     return this.serviceRepo.find({
-      where: { establishmentId },
+      where: includeInactive
+        ? { establishmentId }
+        : { establishmentId, active: true },
       order: { name: 'ASC' },
     });
+  }
+
+  async setActive(
+    id: string,
+    establishmentId: string,
+    active: boolean,
+  ): Promise<Service> {
+    const service = await this.serviceRepo.findOneBy({ id, establishmentId });
+    if (!service) {
+      throw new NotFoundException('Serviço não encontrado');
+    }
+    service.active = active;
+    return this.serviceRepo.save(service);
   }
 
   async findById(
@@ -85,9 +103,10 @@ export class ServicesService {
       throw new NotFoundException('Serviço não encontrado');
     }
     if (service.bookingServices?.length > 0) {
-      throw new BadRequestException(
-        'Não é possível excluir um serviço com agendamentos vinculados',
-      );
+      // Soft-delete: keep history intact, hide from customer catalog
+      service.active = false;
+      await this.serviceRepo.save(service);
+      return;
     }
     await this.serviceRepo.remove(service);
   }

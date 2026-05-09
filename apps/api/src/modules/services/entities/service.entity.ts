@@ -31,6 +31,9 @@ export class Service {
   @Column({ name: 'duration_minutes', type: 'int' })
   durationMinutes: number;
 
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
   @ManyToOne(() => Establishment, (e) => e.services)
   @JoinColumn({ name: 'establishment_id' })
   establishment: Establishment;

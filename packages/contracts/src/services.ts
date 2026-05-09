@@ -4,6 +4,7 @@ export interface ServiceResponse {
   name: string;
   price: number;
   durationMinutes: number;
+  active: boolean;
 }
 
 export interface CreateServiceRequest {

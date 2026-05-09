@@ -110,7 +110,15 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
               />
             </td>
             <td>
-              <div class="flex gap-1 flex-wrap">
+              <div class="flex gap-2 flex-wrap align-items-center">
+                <a
+                  pButton
+                  icon="pi pi-eye"
+                  label="Detalhes"
+                  outlined
+                  size="small"
+                  [routerLink]="['/bookings', b.id]"
+                ></a>
                 @if (b.status === 'PENDING') {
                   <p-button
                     icon="pi pi-check"
@@ -134,21 +142,13 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                 @if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
                   <p-button
                     icon="pi pi-times"
+                    label="Cancelar"
                     severity="danger"
-                    text
+                    outlined
                     size="small"
                     (onClick)="confirmCancel(b)"
-                    pTooltip="Cancelar"
                   />
                 }
-                <a
-                  pButton
-                  icon="pi pi-eye"
-                  text
-                  size="small"
-                  [routerLink]="['/bookings', b.id]"
-                  pTooltip="Ver detalhes"
-                ></a>
               </div>
             </td>
           </tr>

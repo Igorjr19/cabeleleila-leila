@@ -14,6 +14,8 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import {
   CreateServiceRequest,
@@ -85,7 +87,11 @@ export class ServiceFormComponent {
   private readonly fb = inject(FormBuilder);
 
   @Input() set service(s: ServiceResponse | null) {
-    if (s) this.form.patchValue(s);
+    if (s) {
+      this.form.patchValue(s);
+    } else {
+      this.form.reset({ name: '', price: 0, durationMinutes: 30 });
+    }
   }
   @Input() loading = signal(false);
   @Output() saved = new EventEmitter<
@@ -119,6 +125,8 @@ export class ServiceFormComponent {
     ButtonModule,
     DialogModule,
     ConfirmDialogModule,
+    TagModule,
+    TooltipModule,
     BrlCurrencyPipe,
     ServiceFormComponent,
   ],
@@ -144,24 +152,40 @@ export class ServiceFormComponent {
             <th>Nome</th>
             <th>Preço</th>
             <th>Duração</th>
+            <th>Status</th>
             <th>Ações</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-s>
-          <tr>
+          <tr [style.opacity]="s.active ? 1 : 0.6">
             <td>{{ s.name }}</td>
             <td>{{ s.price | brlCurrency }}</td>
             <td>{{ s.durationMinutes }} min</td>
             <td>
-              <div class="flex gap-1">
+              <p-tag
+                [value]="s.active ? 'Ativo' : 'Inativo'"
+                [severity]="s.active ? 'success' : 'secondary'"
+              />
+            </td>
+            <td>
+              <div class="flex gap-1 align-items-center">
+                <p-button
+                  [icon]="s.active ? 'pi pi-eye-slash' : 'pi pi-eye'"
+                  [pTooltip]="s.active ? 'Desativar' : 'Reativar'"
+                  text
+                  size="small"
+                  (onClick)="toggleActive(s)"
+                />
                 <p-button
                   icon="pi pi-pencil"
+                  pTooltip="Editar"
                   text
                   size="small"
                   (onClick)="openEdit(s)"
                 />
                 <p-button
                   icon="pi pi-trash"
+                  pTooltip="Excluir"
                   text
                   severity="danger"
                   size="small"
@@ -247,9 +271,28 @@ export class AdminServicesComponent implements OnInit {
     });
   }
 
+  toggleActive(s: ServiceResponse): void {
+    this.serviceApi.setServiceActive(s.id, !s.active).subscribe({
+      next: () => {
+        this.loadServices();
+        this.messageService.add({
+          severity: 'success',
+          summary: !s.active ? 'Serviço reativado' : 'Serviço desativado',
+          detail: s.name,
+        });
+      },
+      error: () =>
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: 'Não foi possível alterar.',
+        }),
+    });
+  }
+
   confirmDelete(s: ServiceResponse): void {
     this.confirmationService.confirm({
-      message: `Excluir "${s.name}"?`,
+      message: `Excluir "${s.name}"? Se houver agendamentos vinculados, o serviço será desativado em vez de excluído.`,
       header: 'Confirmar exclusão',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Excluir',
@@ -261,8 +304,8 @@ export class AdminServicesComponent implements OnInit {
             this.loadServices();
             this.messageService.add({
               severity: 'success',
-              summary: 'Excluído',
-              detail: `"${s.name}" removido.`,
+              summary: 'Removido',
+              detail: `"${s.name}" não aparece mais para clientes.`,
             });
           },
           error: (err) => {

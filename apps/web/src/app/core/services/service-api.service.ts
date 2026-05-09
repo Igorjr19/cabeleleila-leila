@@ -31,4 +31,10 @@ export class ServiceApiService {
   deleteService(id: string) {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
+
+  setServiceActive(id: string, active: boolean) {
+    return this.http.patch<ServiceResponse>(`${this.base}/${id}/active`, {
+      active,
+    });
+  }
 }

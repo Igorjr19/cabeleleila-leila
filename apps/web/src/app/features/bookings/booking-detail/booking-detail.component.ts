@@ -17,7 +17,6 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
 import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
-import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 import { SALON_PHONE } from '../../../core/constants/establishment';
@@ -50,23 +49,16 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
 };
 
 const SERVICE_STATUS_LABELS: Record<BookingServiceStatus, string> = {
-  [BookingServiceStatus.PENDING]: 'Pendente',
-  [BookingServiceStatus.IN_PROGRESS]: 'Em andamento',
-  [BookingServiceStatus.DONE]: 'Concluído',
-  [BookingServiceStatus.SKIPPED]: 'Não realizado',
+  [BookingServiceStatus.PENDING]: 'Aguardando análise',
+  [BookingServiceStatus.CONFIRMED]: 'Confirmado',
+  [BookingServiceStatus.DECLINED]: 'Recusado',
 };
 
 const SERVICE_STATUS_SEVERITY: Record<BookingServiceStatus, string> = {
   [BookingServiceStatus.PENDING]: 'warn',
-  [BookingServiceStatus.IN_PROGRESS]: 'info',
-  [BookingServiceStatus.DONE]: 'success',
-  [BookingServiceStatus.SKIPPED]: 'secondary',
+  [BookingServiceStatus.CONFIRMED]: 'success',
+  [BookingServiceStatus.DECLINED]: 'danger',
 };
-
-const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
-  label: SERVICE_STATUS_LABELS[v],
-  value: v,
-}));
 
 @Component({
   selector: 'app-booking-detail',
@@ -82,7 +74,6 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
     ConfirmDialogModule,
     DividerModule,
     ListboxModule,
-    SelectModule,
     TooltipModule,
     SpDatetimePipe,
     BrlCurrencyPipe,
@@ -151,20 +142,40 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
                     </div>
 
                     <div class="flex align-items-center gap-2 flex-wrap">
-                      @if (isAdmin() && canEditServiceStatus()) {
-                        <p-select
-                          [ngModel]="s.status"
-                          [options]="serviceStatusOptions"
-                          optionLabel="label"
-                          optionValue="value"
-                          appendTo="body"
-                          styleClass="w-full md:w-auto"
-                          (onChange)="changeServiceStatus(s.id, $event.value)"
+                      <p-tag
+                        [value]="serviceStatusLabel(s.status)"
+                        [severity]="serviceStatusSeverity(s.status)"
+                      />
+
+                      @if (
+                        isAdmin() &&
+                        canDecideService(s.status) &&
+                        booking()!.status === 'PENDING'
+                      ) {
+                        <p-button
+                          icon="pi pi-check"
+                          label="Confirmar"
+                          severity="success"
+                          size="small"
+                          (onClick)="
+                            decideService(
+                              s.id,
+                              BookingServiceStatusEnum.CONFIRMED
+                            )
+                          "
                         />
-                      } @else {
-                        <p-tag
-                          [value]="serviceStatusLabel(s.status)"
-                          [severity]="serviceStatusSeverity(s.status)"
+                        <p-button
+                          icon="pi pi-times"
+                          label="Recusar"
+                          severity="danger"
+                          outlined
+                          size="small"
+                          (onClick)="
+                            decideService(
+                              s.id,
+                              BookingServiceStatusEnum.DECLINED
+                            )
+                          "
                         />
                       }
                     </div>
@@ -285,6 +296,13 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
                     icon="pi pi-check"
                     severity="success"
                     [loading]="transitioning()"
+                    [disabled]="!allServicesDecided()"
+                    [pTooltip]="
+                      allServicesDecided()
+                        ? ''
+                        : 'Confirme ou recuse cada serviço solicitado antes de confirmar o agendamento.'
+                    "
+                    tooltipPosition="top"
                     (onClick)="confirmBooking()"
                   />
                 }
@@ -354,7 +372,7 @@ export class BookingDetailComponent implements OnInit {
   readonly allServices = signal<ServiceResponse[] | null>(null);
 
   readonly isAdmin = this.auth.isAdmin;
-  readonly serviceStatusOptions = SERVICE_STATUS_OPTIONS;
+  readonly BookingServiceStatusEnum = BookingServiceStatus;
 
   newDate: Date | null = null;
   editingServices: ServiceResponse[] = [];
@@ -401,13 +419,14 @@ export class BookingDetailComponent implements OnInit {
     );
   }
 
-  canEditServiceStatus(): boolean {
+  canDecideService(status: BookingServiceStatus): boolean {
+    return status === BookingServiceStatus.PENDING;
+  }
+
+  allServicesDecided(): boolean {
     const b = this.booking();
     if (!b) return false;
-    return (
-      b.status !== BookingStatus.CANCELLED &&
-      b.status !== BookingStatus.FINISHED
-    );
+    return b.services.every((s) => s.status !== BookingServiceStatus.PENDING);
   }
 
   canEditServices(): boolean {
@@ -416,10 +435,7 @@ export class BookingDetailComponent implements OnInit {
     return b.services.every((s) => s.status === BookingServiceStatus.PENDING);
   }
 
-  changeServiceStatus(
-    serviceId: string,
-    newStatus: BookingServiceStatus,
-  ): void {
+  decideService(serviceId: string, newStatus: BookingServiceStatus): void {
     const booking = this.booking();
     if (!booking) return;
 
@@ -430,7 +446,10 @@ export class BookingDetailComponent implements OnInit {
           this.booking.set(updated);
           this.messageService.add({
             severity: 'success',
-            summary: 'Status do serviço atualizado',
+            summary:
+              newStatus === BookingServiceStatus.CONFIRMED
+                ? 'Serviço confirmado'
+                : 'Serviço recusado',
             detail: SERVICE_STATUS_LABELS[newStatus],
           });
         },

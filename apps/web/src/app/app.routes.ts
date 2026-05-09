@@ -104,6 +104,13 @@ export const routes: Routes = [
                 (m) => m.EstablishmentConfigComponent,
               ),
           },
+          {
+            path: 'time-blocks',
+            loadComponent: () =>
+              import('./features/admin/time-blocks/time-blocks.component').then(
+                (m) => m.AdminTimeBlocksComponent,
+              ),
+          },
           { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
         ],
       },

@@ -17,6 +17,7 @@ import { DataSource, Repository } from 'typeorm';
 import { EstablishmentService } from '../establishment/establishment.service';
 import { Service } from '../services/entities/service.entity';
 import { ServicesService } from '../services/services.service';
+import { TimeBlocksService } from '../time-blocks/time-blocks.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
@@ -34,6 +35,7 @@ export class BookingsService {
     private readonly bookingServiceRepo: Repository<BookingEntityService>,
     private readonly servicesService: ServicesService,
     private readonly establishmentService: EstablishmentService,
+    private readonly timeBlocksService: TimeBlocksService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -268,6 +270,34 @@ export class BookingsService {
       );
     }
 
+    if (
+      dto.status === BookingStatus.FINISHED &&
+      booking.scheduledAt > new Date()
+    ) {
+      throw new BadRequestException(
+        'Não é possível finalizar um agendamento antes do horário marcado.',
+      );
+    }
+
+    if (dto.status === BookingStatus.CONFIRMED) {
+      const stillPending = await this.bookingServiceRepo.count({
+        where: { bookingId, status: BookingServiceStatus.PENDING },
+      });
+      if (stillPending > 0) {
+        throw new BadRequestException(
+          'Confirme ou recuse cada serviço solicitado antes de confirmar o agendamento.',
+        );
+      }
+      const anyConfirmed = await this.bookingServiceRepo.count({
+        where: { bookingId, status: BookingServiceStatus.CONFIRMED },
+      });
+      if (anyConfirmed === 0) {
+        throw new BadRequestException(
+          'Não há serviços confirmados para este agendamento. Cancele em vez de confirmar.',
+        );
+      }
+    }
+
     booking.status = dto.status;
     await this.bookingRepo.save(booking);
 
@@ -468,7 +498,10 @@ export class BookingsService {
       .leftJoin('bs.service', 's')
       .select('b.id', 'id')
       .addSelect('b.scheduled_at', 'scheduledAt')
-      .addSelect('COALESCE(SUM(s.duration_minutes), 0)', 'duration')
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN bs.status != 'DECLINED' THEN s.duration_minutes ELSE 0 END), 0)`,
+        'duration',
+      )
       .where('b.establishment_id = :est', { est: establishmentId })
       .andWhere('b.scheduled_at >= :start AND b.scheduled_at < :end', {
         start: dayStart.toISOString(),
@@ -485,6 +518,16 @@ export class BookingsService {
       const end = new Date(start.getTime() + Number(e.duration) * 60_000);
       return { start, end };
     });
+
+    const blocks = await this.timeBlocksService.findInRange(
+      establishmentId,
+      dayStart,
+      nextDayStart,
+    );
+    const blockIntervals = blocks.map((b) => ({
+      start: b.startsAt,
+      end: b.endsAt,
+    }));
 
     const toMin = (hhmm: string): number => {
       const [h, m] = hhmm.split(':').map(Number);
@@ -543,6 +586,10 @@ export class BookingsService {
         existingIntervals.some((i) => slotStart < i.end && slotEnd > i.start)
       ) {
         reason = 'OCCUPIED';
+      } else if (
+        blockIntervals.some((i) => slotStart < i.end && slotEnd > i.start)
+      ) {
+        reason = 'BLOCKED';
       }
 
       slots.push({
@@ -661,7 +708,7 @@ export class BookingsService {
       // Overlap if [start,end) intersects [lunchStart,lunchEnd)
       if (startMin < lunchEndMin && endMin > lunchStartMin) {
         throw new BadRequestException(
-          `O serviço atravessa o horário de almoço (${hours.lunchStart}–${hours.lunchEnd}).`,
+          `O serviço conflita com o horário de almoço (${hours.lunchStart}–${hours.lunchEnd}).`,
         );
       }
     }
@@ -706,6 +753,7 @@ export class BookingsService {
        INNER JOIN services s ON s.id = bs.service_id
        WHERE b.establishment_id = $1
          AND b.status IN ('PENDING', 'CONFIRMED')
+         AND bs.status != 'DECLINED'
          AND b.scheduled_at < $2
          ${excludeClause}
        GROUP BY b.id, b.scheduled_at
@@ -717,6 +765,17 @@ export class BookingsService {
     if (result.length > 0) {
       throw new BadRequestException(
         'Horário indisponível. Já existe um agendamento neste horário. Por favor, escolha outro horário.',
+      );
+    }
+
+    const blocks = await this.timeBlocksService.findInRange(
+      establishmentId,
+      scheduledDate,
+      newEnd,
+    );
+    if (blocks.length > 0) {
+      throw new BadRequestException(
+        'Horário indisponível: o salão tem um bloqueio cadastrado neste período.',
       );
     }
   }

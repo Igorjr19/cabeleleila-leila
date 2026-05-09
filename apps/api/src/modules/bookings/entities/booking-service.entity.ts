@@ -15,7 +15,7 @@ export { BookingServiceStatus };
 
 @Entity('booking_services')
 @Unique(['bookingId', 'serviceId'])
-@Check(`"status" IN ('PENDING', 'IN_PROGRESS', 'DONE', 'SKIPPED')`)
+@Check(`"status" IN ('PENDING', 'CONFIRMED', 'DECLINED')`)
 export class BookingService {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -36,10 +36,11 @@ import {
 const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
   PAST: 'Horário já passou',
   TOO_SOON: 'Antecedência mínima não atendida — ligue para o salão',
-  LUNCH: 'Atravessa o horário de almoço',
+  LUNCH: 'Conflita com o horário de almoço',
   OCCUPIED: 'Já existe agendamento neste horário',
   CLOSING: 'O serviço terminaria depois do fechamento',
   CLOSED: 'Salão fechado',
+  BLOCKED: 'Salão indisponível neste horário',
 };
 
 @Component({
@@ -152,12 +153,19 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
               <p-datepicker
                 [(ngModel)]="selectedDay"
                 [minDate]="minDate()"
+                [disabledDays]="closedDays()"
                 [showButtonBar]="true"
                 placeholder="Selecione uma data"
                 styleClass="w-full"
                 (onSelect)="onDayPicked()"
                 (onClear)="onDayCleared()"
               />
+              @if (closedDayLabels().length > 0) {
+                <small class="text-color-secondary">
+                  Salão fechado:
+                  {{ closedDayLabels().join(', ') }}.
+                </small>
+              }
             </div>
 
             @if (loadingAvailability()) {
@@ -220,20 +228,30 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
                     }
                   </div>
 
-                  <div class="flex flex-wrap gap-3 mt-1">
+                  <div class="flex flex-wrap gap-3 mt-1 align-items-center">
                     <span
-                      class="flex align-items-center gap-1 text-xs text-color-secondary"
+                      class="flex align-items-center gap-2 text-xs text-color-secondary"
                     >
-                      <i class="pi pi-circle-fill text-primary"></i>
+                      <p-button
+                        label="hh:mm"
+                        severity="primary"
+                        outlined
+                        size="small"
+                        [styleClass]="'pointer-events-none'"
+                      />
                       Disponível
                     </span>
                     <span
-                      class="flex align-items-center gap-1 text-xs text-color-secondary"
+                      class="flex align-items-center gap-2 text-xs text-color-secondary"
                     >
-                      <i
-                        class="pi pi-circle-fill"
-                        style="color:var(--surface-300)"
-                      ></i>
+                      <p-button
+                        label="hh:mm"
+                        severity="primary"
+                        outlined
+                        disabled
+                        size="small"
+                        [styleClass]="'pointer-events-none'"
+                      />
                       Indisponível (passe o mouse para ver o motivo)
                     </span>
                   </div>
@@ -358,6 +376,26 @@ export class BookingNewComponent implements OnInit {
     const minDays = this.config()?.minDaysForOnlineUpdate ?? 2;
     return addDays(minDays);
   });
+
+  readonly closedDays = computed(() => {
+    const cfg = this.config();
+    if (!cfg) return [];
+    return cfg.businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek);
+  });
+
+  private readonly DAY_NAMES_LONG = [
+    'domingos',
+    'segundas-feiras',
+    'terças-feiras',
+    'quartas-feiras',
+    'quintas-feiras',
+    'sextas-feiras',
+    'sábados',
+  ];
+
+  readonly closedDayLabels = computed(() =>
+    this.closedDays().map((d) => this.DAY_NAMES_LONG[d]),
+  );
 
   get totalPrice(): number {
     return this.selectedServices.reduce((s, sv) => s + sv.price, 0);

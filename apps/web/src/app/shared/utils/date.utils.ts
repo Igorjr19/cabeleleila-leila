@@ -70,7 +70,7 @@ export function isValidBusinessHour(
     if (startMin < lunchEndMin && endMin > lunchStartMin) {
       return {
         valid: false,
-        reason: `Atravessa o horário de almoço (${hours.lunchStart}–${hours.lunchEnd})`,
+        reason: `Conflita com o horário de almoço (${hours.lunchStart}–${hours.lunchEnd})`,
       };
     }
   }
