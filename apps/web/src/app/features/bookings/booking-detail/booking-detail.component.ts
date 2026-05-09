@@ -6,6 +6,7 @@ import {
   BookingServiceStatus,
   BookingStatus,
   EstablishmentConfig,
+  ServiceResponse,
 } from '@cabeleleila/contracts';
 import { DateTime } from 'luxon';
 import { ConfirmationService, MessageService } from 'primeng/api';
@@ -14,13 +15,16 @@ import { CardModule } from 'primeng/card';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
+import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { AuthService } from '../../../core/services/auth.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
+import { ServiceApiService } from '../../../core/services/service-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
 import {
@@ -28,6 +32,8 @@ import {
   isValidBusinessHour,
   toUtcISO,
 } from '../../../shared/utils/date.utils';
+
+type EditMode = 'date' | 'services' | null;
 
 const STATUS_LABELS: Record<BookingStatus, string> = {
   [BookingStatus.PENDING]: 'Pendente',
@@ -75,7 +81,9 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
     DatePickerModule,
     ConfirmDialogModule,
     DividerModule,
+    ListboxModule,
     SelectModule,
+    TooltipModule,
     SpDatetimePipe,
     BrlCurrencyPipe,
   ],
@@ -170,8 +178,8 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
               <p-message severity="error" [text]="actionError()!" />
             }
 
-            <!-- Edit form -->
-            @if (editMode()) {
+            <!-- Edit: date -->
+            @if (editMode() === 'date') {
               <p-divider />
               <div class="flex flex-column gap-2">
                 <label class="font-semibold">Nova data e horário</label>
@@ -190,22 +198,85 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
                   <p-button
                     label="Cancelar"
                     severity="secondary"
-                    (onClick)="
-                      editMode.set(false); newDate = null; dateError.set(null)
-                    "
+                    (onClick)="cancelEdit()"
                   />
                   <p-button
                     label="Salvar"
                     [loading]="saving()"
                     [disabled]="!newDate || !!dateError()"
-                    (onClick)="saveEdit()"
+                    (onClick)="saveDate()"
+                  />
+                </div>
+              </div>
+            }
+
+            <!-- Edit: services -->
+            @if (editMode() === 'services') {
+              <p-divider />
+              <div class="flex flex-column gap-2">
+                <label class="font-semibold">Editar serviços</label>
+                @if (allServices()) {
+                  <p-listbox
+                    [options]="allServices()!"
+                    [multiple]="true"
+                    [(ngModel)]="editingServices"
+                    optionLabel="name"
+                    [listStyle]="{ 'max-height': '260px' }"
+                    styleClass="w-full"
+                  >
+                    <ng-template pTemplate="option" let-svc>
+                      <div
+                        class="flex justify-content-between align-items-center w-full"
+                      >
+                        <span>{{ svc.name }}</span>
+                        <div class="flex align-items-center gap-2">
+                          <span class="text-color-secondary text-sm">
+                            {{ svc.durationMinutes }} min
+                          </span>
+                          <span class="font-bold text-primary">
+                            {{ svc.price | brlCurrency }}
+                          </span>
+                        </div>
+                      </div>
+                    </ng-template>
+                  </p-listbox>
+                } @else {
+                  <p class="text-color-secondary">Carregando serviços...</p>
+                }
+
+                @if (editingServices.length > 0) {
+                  <div
+                    class="flex justify-content-between text-sm text-color-secondary"
+                  >
+                    <span>{{ editingDuration }} min no total</span>
+                    <span class="font-bold text-primary">
+                      {{ editingTotalPrice | brlCurrency }}
+                    </span>
+                  </div>
+                }
+
+                @if (servicesError()) {
+                  <small class="p-error">{{ servicesError() }}</small>
+                }
+
+                <div class="flex gap-2 justify-content-end">
+                  <p-button
+                    label="Cancelar"
+                    severity="secondary"
+                    (onClick)="cancelEdit()"
+                  />
+                  <p-button
+                    label="Salvar"
+                    [loading]="saving()"
+                    [disabled]="editingServices.length === 0"
+                    (onClick)="saveServices()"
                   />
                 </div>
               </div>
             }
 
             <!-- Actions -->
-            @if (!editMode() && canEdit(booking()!)) {
+            @if (editMode() === null && canEdit(booking()!)) {
               <p-divider />
               <div class="flex gap-2 flex-wrap">
                 @if (isAdmin() && booking()!.status === 'PENDING') {
@@ -227,11 +298,25 @@ const SERVICE_STATUS_OPTIONS = Object.values(BookingServiceStatus).map((v) => ({
                   />
                 }
                 <p-button
+                  label="Editar serviços"
+                  icon="pi pi-list"
+                  severity="secondary"
+                  text
+                  [disabled]="!canEditServices()"
+                  [pTooltip]="
+                    canEditServices()
+                      ? ''
+                      : 'Algum serviço já foi iniciado ou concluído pelo salão. Para alterações, ligue para o salão.'
+                  "
+                  tooltipPosition="top"
+                  (onClick)="startEditServices()"
+                />
+                <p-button
                   label="Editar horário"
                   icon="pi pi-pencil"
                   severity="secondary"
                   text
-                  (onClick)="startEdit()"
+                  (onClick)="startEditDate()"
                 />
                 <p-button
                   label="Cancelar agendamento"
@@ -254,6 +339,7 @@ export class BookingDetailComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly bookingApi = inject(BookingApiService);
   private readonly establishmentApi = inject(EstablishmentApiService);
+  private readonly serviceApi = inject(ServiceApiService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
 
@@ -262,13 +348,16 @@ export class BookingDetailComponent implements OnInit {
   readonly transitioning = signal(false);
   readonly booking = signal<BookingResponse | null>(null);
   readonly actionError = signal<string | null>(null);
-  readonly editMode = signal(false);
+  readonly editMode = signal<EditMode>(null);
   readonly dateError = signal<string | null>(null);
+  readonly servicesError = signal<string | null>(null);
+  readonly allServices = signal<ServiceResponse[] | null>(null);
 
   readonly isAdmin = this.auth.isAdmin;
   readonly serviceStatusOptions = SERVICE_STATUS_OPTIONS;
 
   newDate: Date | null = null;
+  editingServices: ServiceResponse[] = [];
   minDate = addDays(2);
   private config: EstablishmentConfig | null = null;
 
@@ -321,6 +410,12 @@ export class BookingDetailComponent implements OnInit {
     );
   }
 
+  canEditServices(): boolean {
+    const b = this.booking();
+    if (!b) return false;
+    return b.services.every((s) => s.status === BookingServiceStatus.PENDING);
+  }
+
   changeServiceStatus(
     serviceId: string,
     newStatus: BookingServiceStatus,
@@ -350,7 +445,15 @@ export class BookingDetailComponent implements OnInit {
       });
   }
 
-  startEdit(): void {
+  get editingDuration(): number {
+    return this.editingServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+  }
+
+  get editingTotalPrice(): number {
+    return this.editingServices.reduce((sum, s) => sum + s.price, 0);
+  }
+
+  startEditDate(): void {
     const scheduledAt = this.booking()?.scheduledAt;
     if (scheduledAt) {
       this.newDate = DateTime.fromISO(scheduledAt, { zone: 'utc' })
@@ -358,7 +461,46 @@ export class BookingDetailComponent implements OnInit {
         .setZone('local', { keepLocalTime: true })
         .toJSDate();
     }
-    this.editMode.set(true);
+    this.dateError.set(null);
+    this.editMode.set('date');
+  }
+
+  startEditServices(): void {
+    const booking = this.booking();
+    if (!booking) return;
+
+    this.servicesError.set(null);
+    this.editMode.set('services');
+
+    if (this.allServices() === null) {
+      this.serviceApi.getServices().subscribe({
+        next: (services) => {
+          this.allServices.set(services);
+          // Pre-select services that are already on the booking
+          const currentIds = new Set(booking.services.map((s) => s.id));
+          this.editingServices = services.filter((s) => currentIds.has(s.id));
+        },
+        error: () => {
+          this.servicesError.set(
+            'Não foi possível carregar a lista de serviços.',
+          );
+        },
+      });
+    } else {
+      const currentIds = new Set(booking.services.map((s) => s.id));
+      this.editingServices = (this.allServices() ?? []).filter((s) =>
+        currentIds.has(s.id),
+      );
+    }
+  }
+
+  cancelEdit(): void {
+    this.editMode.set(null);
+    this.newDate = null;
+    this.dateError.set(null);
+    this.editingServices = [];
+    this.servicesError.set(null);
+    this.actionError.set(null);
   }
 
   validateNewDate(): void {
@@ -379,7 +521,7 @@ export class BookingDetailComponent implements OnInit {
     );
   }
 
-  saveEdit(): void {
+  saveDate(): void {
     if (!this.newDate) return;
     const id = this.booking()!.id;
     this.saving.set(true);
@@ -391,11 +533,12 @@ export class BookingDetailComponent implements OnInit {
         next: (b) => {
           this.saving.set(false);
           this.booking.set(b);
-          this.editMode.set(false);
+          this.editMode.set(null);
+          this.newDate = null;
           this.messageService.add({
             severity: 'success',
-            summary: 'Atualizado',
-            detail: 'Horário alterado com sucesso.',
+            summary: 'Horário alterado',
+            detail: 'Agendamento atualizado com sucesso.',
           });
         },
         error: (err) => {
@@ -408,6 +551,47 @@ export class BookingDetailComponent implements OnInit {
           );
         },
       });
+  }
+
+  saveServices(): void {
+    if (this.editingServices.length === 0) return;
+    const id = this.booking()!.id;
+    this.saving.set(true);
+    this.servicesError.set(null);
+
+    const serviceIds = this.editingServices.map((s) => s.id);
+
+    this.bookingApi.updateBooking(id, { serviceIds }).subscribe({
+      next: (b) => {
+        this.saving.set(false);
+        this.booking.set(b);
+        this.editMode.set(null);
+        this.editingServices = [];
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Serviços atualizados',
+          detail: 'Lista de serviços do agendamento atualizada.',
+        });
+      },
+      error: (err) => {
+        this.saving.set(false);
+        const msg: string =
+          err.error?.message ?? 'Não foi possível atualizar os serviços.';
+        if (msg.toLowerCase().includes('antecedência')) {
+          this.servicesError.set(`${msg} Ligue: ${SALON_PHONE}`);
+        } else if (
+          msg.toLowerCase().includes('horário indisponível') ||
+          msg.toLowerCase().includes('funcionamento') ||
+          msg.toLowerCase().includes('almoço')
+        ) {
+          this.servicesError.set(
+            `${msg} A nova duração não cabe no horário atual — edite também o horário.`,
+          );
+        } else {
+          this.servicesError.set(msg);
+        }
+      },
+    });
   }
 
   confirmBooking(): void {

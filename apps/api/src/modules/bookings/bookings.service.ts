@@ -15,6 +15,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { EstablishmentService } from '../establishment/establishment.service';
+import { Service } from '../services/entities/service.entity';
 import { ServicesService } from '../services/services.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
@@ -22,7 +23,6 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { BookingService as BookingEntityService } from './entities/booking-service.entity';
 import { Booking, BookingStatus } from './entities/booking.entity';
-import { Service } from '../services/entities/service.entity';
 import { BookingWithServices } from './interfaces/booking-with-services.interface';
 
 @Injectable()
@@ -205,8 +205,21 @@ export class BookingsService {
     await this.bookingRepo.save(booking);
 
     if (updatedServices !== null) {
-      await this.bookingServiceRepo.delete({ bookingId });
+      const existing = await this.bookingServiceRepo.find({
+        where: { bookingId },
+      });
+      const existingIds = new Set(existing.map((bs) => bs.serviceId));
+      const newIds = new Set(updatedServices.map((s) => s.id));
+
+      const toRemove = existing.filter((bs) => !newIds.has(bs.serviceId));
+      if (toRemove.length > 0) {
+        await this.bookingServiceRepo.remove(toRemove);
+      }
+
       for (const service of updatedServices) {
+        if (existingIds.has(service.id)) {
+          continue;
+        }
         await this.bookingServiceRepo.save(
           this.bookingServiceRepo.create({
             bookingId,
