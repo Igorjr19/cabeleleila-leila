@@ -3,6 +3,8 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
@@ -23,6 +25,8 @@ import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
     TableModule,
     ButtonModule,
     InputTextModule,
+    IconFieldModule,
+    InputIconModule,
     TagModule,
     BrlCurrencyPipe,
     SpDatetimePipe,
@@ -73,18 +77,17 @@ import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
         </div>
       </div>
 
-      <div class="flex gap-2">
-        <span class="p-input-icon-left flex-1">
-          <i class="pi pi-search"></i>
-          <input
-            pInputText
-            type="text"
-            [(ngModel)]="filterText"
-            placeholder="Filtrar por nome, e-mail ou telefone"
-            class="w-full"
-          />
-        </span>
-      </div>
+      <p-iconfield iconPosition="left" styleClass="w-full">
+        <p-inputicon class="pi pi-search" />
+        <input
+          pInputText
+          type="text"
+          [ngModel]="filterText()"
+          (ngModelChange)="filterText.set($event)"
+          placeholder="Filtrar por nome, e-mail ou telefone"
+          class="w-full"
+        />
+      </p-iconfield>
 
       @if (loading()) {
         <p class="text-color-secondary">Carregando...</p>
@@ -165,11 +168,11 @@ export class AdminCustomersComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly customers = signal<CustomerWithStats[]>([]);
-
-  filterText = '';
+  readonly filterText = signal('');
 
   readonly filteredCustomers = computed(() => {
-    const term = this.filterText.trim().toLowerCase();
+    const term = this.filterText().trim().toLowerCase();
+    // TODO - Não filtrar a lista retornada. Corrigir endpoint para ser paginado e permitir esse filtro.
     if (!term) return this.customers();
     return this.customers().filter((c) => {
       return (
