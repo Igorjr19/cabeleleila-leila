@@ -40,21 +40,6 @@ import { AuthService } from '../../core/services/auth.service';
             <a
               pButton
               text
-              routerLink="/services"
-              routerLinkActive="p-button-outlined"
-              label="Serviços"
-              size="small"
-            ></a>
-            <a
-              pButton
-              routerLink="/bookings/new"
-              label="Agendar"
-              icon="pi pi-calendar-plus"
-              size="small"
-            ></a>
-            <a
-              pButton
-              text
               routerLink="/auth/login"
               label="Entrar"
               size="small"
@@ -150,22 +135,6 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="surface-card border-bottom-1 surface-border md:hidden">
           <div class="flex flex-column p-2 gap-1">
             @if (!isAuthenticated()) {
-              <a
-                pButton
-                text
-                class="w-full justify-content-start"
-                routerLink="/services"
-                label="Serviços"
-                (click)="mobileMenuOpen = false"
-              ></a>
-              <a
-                pButton
-                class="w-full justify-content-start"
-                routerLink="/bookings/new"
-                label="Agendar"
-                icon="pi pi-calendar-plus"
-                (click)="mobileMenuOpen = false"
-              ></a>
               <a
                 pButton
                 text

@@ -54,6 +54,14 @@ export const routes: Routes = [
     loadComponent: mainLayoutLoader,
     children: [
       {
+        path: '',
+        pathMatch: 'full',
+        loadComponent: () =>
+          import('./features/landing/landing.component').then(
+            (m) => m.LandingComponent,
+          ),
+      },
+      {
         path: 'services',
         loadComponent: () =>
           import('./features/services/service-list/service-list.component').then(
@@ -154,5 +162,5 @@ export const routes: Routes = [
     ],
   },
 
-  { path: '**', redirectTo: '/bookings/new' },
+  { path: '**', redirectTo: '/' },
 ];
