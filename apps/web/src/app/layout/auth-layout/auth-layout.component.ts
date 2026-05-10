@@ -14,7 +14,9 @@ import { SALON_NAME } from '../../core/constants/establishment';
       <div class="w-full" style="max-width: 440px; padding: 1rem">
         <div class="text-center mb-4">
           <h1 class="text-3xl font-bold text-primary m-0">{{ salonName }}</h1>
-          <p class="text-color-secondary mt-1 mb-0">Sistema de Agendamentos</p>
+          <p class="text-color-secondary mt-1 mb-0">
+            Agende seu horário online de forma rápida e fácil
+          </p>
         </div>
         <p-card>
           <router-outlet />

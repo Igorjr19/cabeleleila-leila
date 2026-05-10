@@ -63,7 +63,7 @@ import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
               {{ inactive30Days() }}
             </div>
             <div class="text-color-secondary mt-1 text-sm">
-              Sem agendar há 30+ dias
+              Sem agendar há pelo menos 30 dias
             </div>
           </p-card>
         </div>
