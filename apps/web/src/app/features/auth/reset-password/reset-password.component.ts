@@ -10,6 +10,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
+import { TooltipModule } from 'primeng/tooltip';
 import { AuthService } from '../../../core/services/auth.service';
 
 function passwordMatchValidator(
@@ -28,6 +29,7 @@ function passwordMatchValidator(
     ButtonModule,
     PasswordModule,
     MessageModule,
+    TooltipModule,
     RouterLink,
   ],
   template: `
@@ -36,7 +38,20 @@ function passwordMatchValidator(
       (ngSubmit)="submit()"
       class="flex flex-column gap-3"
     >
-      <h2 class="text-center m-0">Redefinir senha</h2>
+      <div class="flex align-items-center gap-2">
+        <a
+          pButton
+          text
+          rounded
+          icon="pi pi-arrow-left"
+          routerLink="/"
+          pTooltip="Voltar para a home"
+          tooltipPosition="right"
+        ></a>
+        <h2 class="m-0 flex-1 text-center" style="margin-right: 2.5rem">
+          Redefinir senha
+        </h2>
+      </div>
 
       @if (success()) {
         <p-message

@@ -5,6 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { MessageModule } from 'primeng/message';
+import { TooltipModule } from 'primeng/tooltip';
 import { Role } from '@cabeleleila/contracts';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -17,6 +18,7 @@ import { AuthService } from '../../../core/services/auth.service';
     InputTextModule,
     PasswordModule,
     MessageModule,
+    TooltipModule,
     RouterLink,
   ],
   template: `
@@ -25,7 +27,20 @@ import { AuthService } from '../../../core/services/auth.service';
       (ngSubmit)="submit()"
       class="flex flex-column gap-3"
     >
-      <h2 class="text-center m-0">Entrar</h2>
+      <div class="flex align-items-center gap-2">
+        <a
+          pButton
+          text
+          rounded
+          icon="pi pi-arrow-left"
+          routerLink="/"
+          pTooltip="Voltar para a home"
+          tooltipPosition="right"
+        ></a>
+        <h2 class="m-0 flex-1 text-center" style="margin-right: 2.5rem">
+          Entrar
+        </h2>
+      </div>
 
       @if (error()) {
         <p-message severity="error" [text]="error()!" />

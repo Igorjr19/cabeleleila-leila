@@ -8,7 +8,7 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   AvailabilitySlot,
   BookingResponse,
@@ -26,12 +26,12 @@ import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
 import { StepsModule } from 'primeng/steps';
 import { TooltipModule } from 'primeng/tooltip';
-import { ServiceDetailDialogComponent } from '../../../shared/components/service-detail-dialog/service-detail-dialog.component';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { AuthService } from '../../../core/services/auth.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { ServiceApiService } from '../../../core/services/service-api.service';
+import { ServiceDetailDialogComponent } from '../../../shared/components/service-detail-dialog/service-detail-dialog.component';
 import { SlotPickerComponent } from '../../../shared/components/slot-picker/slot-picker.component';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
@@ -88,7 +88,9 @@ const DAY_NAMES_LONG = [
         <p-button
           icon="pi pi-arrow-left"
           text
-          (onClick)="router.navigate(['/bookings'])"
+          pTooltip="Voltar"
+          tooltipPosition="right"
+          (onClick)="goBack()"
         />
         <h2 class="m-0">Novo Agendamento</h2>
       </div>
@@ -368,6 +370,7 @@ const DAY_NAMES_LONG = [
 })
 export class BookingNewComponent implements OnInit {
   readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly serviceApi = inject(ServiceApiService);
   private readonly bookingApi = inject(BookingApiService);
   private readonly establishmentApi = inject(EstablishmentApiService);
@@ -449,6 +452,10 @@ export class BookingNewComponent implements OnInit {
 
   goToStep(step: number): void {
     this.activeStep.set(step);
+  }
+
+  goBack(): void {
+    this.router.navigate([this.isAuthenticated() ? '/bookings' : '/']);
   }
 
   openServiceDetail(event: Event, service: ServiceResponse): void {

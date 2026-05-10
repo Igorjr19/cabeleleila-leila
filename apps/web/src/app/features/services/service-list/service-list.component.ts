@@ -98,7 +98,7 @@ import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
       [service]="selectedService()"
       [showBookCta]="!isAdmin()"
       (dismissed)="closeDetail()"
-      (bookRequested)="goToBooking()"
+      (bookRequested)="goToBooking($event)"
     />
   `,
 })
@@ -120,8 +120,10 @@ export class ServiceListComponent {
     this.dialogVisible.set(false);
   }
 
-  goToBooking(): void {
+  goToBooking(service: ServiceResponse): void {
     this.dialogVisible.set(false);
-    this.router.navigate(['/bookings/new']);
+    this.router.navigate(['/bookings/new'], {
+      queryParams: { serviceId: service.id },
+    });
   }
 }
