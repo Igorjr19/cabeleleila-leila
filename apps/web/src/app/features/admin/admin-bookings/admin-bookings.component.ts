@@ -110,21 +110,26 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
               />
             </td>
             <td>
-              <div class="flex gap-2 flex-wrap align-items-center">
+              <div class="flex gap-1 align-items-center">
                 <a
                   pButton
                   icon="pi pi-eye"
-                  label="Detalhes"
-                  outlined
+                  rounded
+                  text
                   size="small"
+                  pTooltip="Ver detalhes"
+                  tooltipPosition="top"
                   [routerLink]="['/bookings', b.id]"
                 ></a>
                 @if (b.status === 'PENDING') {
                   <p-button
                     icon="pi pi-check"
-                    label="Confirmar"
                     severity="success"
+                    rounded
+                    text
                     size="small"
+                    pTooltip="Confirmar"
+                    tooltipPosition="top"
                     [loading]="busyId() === b.id"
                     (onClick)="confirm(b)"
                   />
@@ -132,9 +137,12 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                 @if (b.status === 'CONFIRMED') {
                   <p-button
                     icon="pi pi-flag-fill"
-                    label="Finalizar"
                     severity="secondary"
+                    rounded
+                    text
                     size="small"
+                    pTooltip="Finalizar"
+                    tooltipPosition="top"
                     [loading]="busyId() === b.id"
                     (onClick)="confirmFinish(b)"
                   />
@@ -142,10 +150,12 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
                 @if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
                   <p-button
                     icon="pi pi-times"
-                    label="Cancelar"
                     severity="danger"
-                    outlined
+                    rounded
+                    text
                     size="small"
+                    pTooltip="Cancelar"
+                    tooltipPosition="top"
                     (onClick)="confirmCancel(b)"
                   />
                 }
