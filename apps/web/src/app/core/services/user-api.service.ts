@@ -41,4 +41,6 @@ export interface CustomerWithStats {
   lastBookingAt: string | null;
   totalSpent: number;
   averageTicket: number;
+  averageServicesPerBooking: number;
+  averageDurationMinutes: number;
 }

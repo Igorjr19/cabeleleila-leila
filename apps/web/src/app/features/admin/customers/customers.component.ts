@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -17,6 +18,7 @@ import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
   standalone: true,
   imports: [
     FormsModule,
+    DecimalPipe,
     CardModule,
     TableModule,
     ButtonModule,
@@ -105,6 +107,8 @@ import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
               <th class="text-right">Total gasto</th>
               <th class="text-right">Ticket médio</th>
               <th class="text-right">Agendamentos</th>
+              <th class="text-right">Serviços / Agendamento</th>
+              <th class="text-right">Duração média</th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-c>
@@ -135,6 +139,20 @@ import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
               </td>
               <td class="text-right">{{ c.averageTicket | brlCurrency }}</td>
               <td class="text-right">{{ c.totalBookings }}</td>
+              <td class="text-right">
+                @if (c.totalBookings > 0) {
+                  {{ c.averageServicesPerBooking | number: '1.1-1' }}
+                } @else {
+                  <span class="text-color-secondary">—</span>
+                }
+              </td>
+              <td class="text-right">
+                @if (c.totalBookings > 0) {
+                  {{ formatDuration(c.averageDurationMinutes) }}
+                } @else {
+                  <span class="text-color-secondary">—</span>
+                }
+              </td>
             </tr>
           </ng-template>
         </p-table>
@@ -194,5 +212,13 @@ export class AdminCustomersComponent implements OnInit {
     if (!c.lastBookingAt) return false;
     const last = new Date(c.lastBookingAt).getTime();
     return Date.now() - last > 30 * 86_400_000;
+  }
+
+  formatDuration(minutes: number): string {
+    const total = Math.round(minutes);
+    if (total < 60) return `${total}min`;
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return m === 0 ? `${h}h` : `${h}h${m.toString().padStart(2, '0')}`;
   }
 }

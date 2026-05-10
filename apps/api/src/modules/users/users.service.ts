@@ -70,40 +70,68 @@ export class UsersService {
   async listCustomersWithStats(
     establishmentId: string,
   ): Promise<CustomerWithStats[]> {
-    const rows: RawCustomerStatsRow[] = await this.userRoleRepo
-      .createQueryBuilder('ur')
-      .innerJoin('users', 'u', 'u.id = ur.user_id')
-      .leftJoin(
-        'bookings',
-        'b',
-        'b.customer_id = u.id AND b.establishment_id = ur.establishment_id',
+    // Use a CTE to pre-aggregate per-booking metrics so customer-level averages
+    // don't get inflated by the booking_services join cardinality.
+    const rows: RawCustomerStatsRow[] = await this.userRoleRepo.query(
+      `
+      WITH booking_metrics AS (
+        SELECT
+          b.id              AS booking_id,
+          b.customer_id     AS customer_id,
+          b.establishment_id AS establishment_id,
+          b.status          AS status,
+          b.scheduled_at    AS scheduled_at,
+          COUNT(*) FILTER (WHERE bs.status != 'DECLINED')::int AS service_count,
+          COALESCE(
+            SUM(s.duration_minutes) FILTER (WHERE bs.status != 'DECLINED'),
+            0
+          )::int AS duration_total,
+          COALESCE(
+            SUM(bs.price_at_booking) FILTER (WHERE bs.status != 'DECLINED'),
+            0
+          )::numeric AS price_total
+        FROM bookings b
+        LEFT JOIN booking_services bs ON bs.booking_id = b.id
+        LEFT JOIN services s ON s.id = bs.service_id
+        GROUP BY b.id
       )
-      .leftJoin('booking_services', 'bs', 'bs.booking_id = b.id')
-      .select('u.id', 'id')
-      .addSelect('u.name', 'name')
-      .addSelect('u.email', 'email')
-      .addSelect('u.phone', 'phone')
-      .addSelect(
-        `COUNT(DISTINCT CASE WHEN b.status != 'CANCELLED' THEN b.id END)`,
-        'totalBookings',
-      )
-      .addSelect(
-        `MAX(CASE WHEN b.status != 'CANCELLED' THEN b.scheduled_at END)`,
-        'lastBookingAt',
-      )
-      .addSelect(
-        `COALESCE(SUM(CASE WHEN b.status = 'FINISHED' AND bs.status != 'DECLINED' THEN bs.price_at_booking ELSE 0 END), 0)`,
-        'totalSpent',
-      )
-      .where('ur.establishment_id = :est', { est: establishmentId })
-      .andWhere('ur.role = :role', { role: Role.CUSTOMER })
-      .groupBy('u.id, u.name, u.email, u.phone')
-      .orderBy(`MAX(b.scheduled_at)`, 'DESC', 'NULLS LAST')
-      .getRawMany();
+      SELECT
+        u.id    AS id,
+        u.name  AS name,
+        u.email AS email,
+        u.phone AS phone,
+        COALESCE(
+          COUNT(bm.booking_id) FILTER (WHERE bm.status != 'CANCELLED'),
+          0
+        )::int AS "totalBookings",
+        MAX(bm.scheduled_at) FILTER (WHERE bm.status != 'CANCELLED') AS "lastBookingAt",
+        COALESCE(
+          SUM(bm.price_total) FILTER (WHERE bm.status = 'FINISHED'),
+          0
+        )::numeric AS "totalSpent",
+        COALESCE(
+          AVG(bm.service_count) FILTER (WHERE bm.status != 'CANCELLED'),
+          0
+        )::numeric AS "avgServicesPerBooking",
+        COALESCE(
+          AVG(bm.duration_total) FILTER (WHERE bm.status != 'CANCELLED'),
+          0
+        )::numeric AS "avgDurationMinutes"
+      FROM users u
+      INNER JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN booking_metrics bm
+        ON bm.customer_id = u.id
+        AND bm.establishment_id = ur.establishment_id
+      WHERE ur.establishment_id = $1 AND ur.role = $2
+      GROUP BY u.id, u.name, u.email, u.phone
+      ORDER BY MAX(bm.scheduled_at) DESC NULLS LAST
+      `,
+      [establishmentId, Role.CUSTOMER],
+    );
 
     return rows.map((r) => {
-      const total = parseInt(r.totalBookings ?? '0', 10);
-      const spent = parseFloat(r.totalSpent ?? '0');
+      const total = parseInt(String(r.totalBookings ?? '0'), 10);
+      const spent = parseFloat(String(r.totalSpent ?? '0'));
       return {
         id: r.id,
         name: r.name,
@@ -115,6 +143,10 @@ export class UsersService {
           : null,
         totalSpent: spent,
         averageTicket: total > 0 ? spent / total : 0,
+        averageServicesPerBooking: parseFloat(
+          String(r.avgServicesPerBooking ?? '0'),
+        ),
+        averageDurationMinutes: parseFloat(String(r.avgDurationMinutes ?? '0')),
       };
     });
   }
@@ -125,9 +157,11 @@ interface RawCustomerStatsRow {
   name: string;
   email: string;
   phone: string | null;
-  totalBookings: string;
+  totalBookings: string | number;
   lastBookingAt: string | Date | null;
-  totalSpent: string;
+  totalSpent: string | number;
+  avgServicesPerBooking: string | number;
+  avgDurationMinutes: string | number;
 }
 
 export interface CustomerWithStats {
@@ -139,4 +173,6 @@ export interface CustomerWithStats {
   lastBookingAt: string | null;
   totalSpent: number;
   averageTicket: number;
+  averageServicesPerBooking: number;
+  averageDurationMinutes: number;
 }
