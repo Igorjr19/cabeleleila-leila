@@ -1,30 +1,36 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import {
-  AvailabilityResponse,
+  AbstractControl,
+  FormBuilder,
+  FormsModule,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import {
   AvailabilitySlot,
   BookingResponse,
   EstablishmentConfig,
   ServiceResponse,
-  SlotUnavailableReason,
 } from '@cabeleleila/contracts';
-import { DateTime } from 'luxon';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
+import { InputMaskModule } from 'primeng/inputmask';
+import { InputTextModule } from 'primeng/inputtext';
 import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
-import { SkeletonModule } from 'primeng/skeleton';
+import { PasswordModule } from 'primeng/password';
 import { StepsModule } from 'primeng/steps';
-import { TooltipModule } from 'primeng/tooltip';
 import { SALON_PHONE } from '../../../core/constants/establishment';
+import { AuthService } from '../../../core/services/auth.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { ServiceApiService } from '../../../core/services/service-api.service';
+import { SlotPickerComponent } from '../../../shared/components/slot-picker/slot-picker.component';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
 import { addDays } from '../../../shared/utils/date.utils';
@@ -33,15 +39,23 @@ import {
   SameWeekChoice,
 } from '../booking-suggestion-dialog/booking-suggestion-dialog.component';
 
-const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
-  PAST: 'Horário já passou',
-  TOO_SOON: 'Antecedência mínima não atendida — ligue para o salão',
-  LUNCH: 'Conflita com o horário de almoço',
-  OCCUPIED: 'Já existe agendamento neste horário',
-  CLOSING: 'O serviço terminaria depois do fechamento',
-  CLOSED: 'Salão fechado',
-  BLOCKED: 'Salão indisponível neste horário',
-};
+function passwordMatchValidator(
+  control: AbstractControl,
+): ValidationErrors | null {
+  const password = control.get('password')?.value;
+  const confirm = control.get('confirmPassword')?.value;
+  return password === confirm ? null : { passwordMismatch: true };
+}
+
+const DAY_NAMES_LONG = [
+  'domingos',
+  'segundas-feiras',
+  'terças-feiras',
+  'quartas-feiras',
+  'quintas-feiras',
+  'sextas-feiras',
+  'sábados',
+];
 
 @Component({
   selector: 'app-booking-new',
@@ -49,15 +63,17 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
   imports: [
     FormsModule,
     ReactiveFormsModule,
+    RouterLink,
     StepsModule,
     ButtonModule,
     ListboxModule,
-    DatePickerModule,
     CardModule,
     MessageModule,
     DividerModule,
-    SkeletonModule,
-    TooltipModule,
+    InputTextModule,
+    InputMaskModule,
+    PasswordModule,
+    SlotPickerComponent,
     BrlCurrencyPipe,
     SpDatetimePipe,
     BookingSuggestionDialogComponent,
@@ -136,7 +152,7 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
         </p-card>
       }
 
-      <!-- Step 2: Date & Slot Selection -->
+      <!-- Step 2: Slot picker -->
       @if (activeStep() === 1) {
         <p-card header="Escolha data e horário">
           @if (configError()) {
@@ -147,118 +163,13 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
             />
           }
 
-          <div class="flex flex-column gap-3">
-            <div class="flex flex-column gap-1">
-              <label class="font-medium">Data</label>
-              <p-datepicker
-                [(ngModel)]="selectedDay"
-                [minDate]="minDate()"
-                [disabledDays]="closedDays()"
-                [showButtonBar]="true"
-                placeholder="Selecione uma data"
-                styleClass="w-full"
-                (onSelect)="onDayPicked()"
-                (onClear)="onDayCleared()"
-              />
-              @if (closedDayLabels().length > 0) {
-                <small class="text-color-secondary">
-                  Salão fechado:
-                  {{ closedDayLabels().join(', ') }}.
-                </small>
-              }
-            </div>
-
-            @if (loadingAvailability()) {
-              <div class="grid">
-                @for (i of skeletonRows; track $index) {
-                  <div class="col-4 md:col-3 lg:col-2">
-                    <p-skeleton height="2.5rem" />
-                  </div>
-                }
-              </div>
-            }
-            @if (!loadingAvailability() && availability(); as av) {
-              @if (!av.isOpen) {
-                <p-message
-                  severity="info"
-                  text="Salão fechado neste dia. Escolha outra data."
-                />
-              } @else if (av.slots.length === 0) {
-                <p-message
-                  severity="warn"
-                  text="O total de serviços selecionados é maior que a janela de funcionamento. Reduza serviços ou escolha outro dia."
-                />
-              } @else {
-                <div class="flex flex-column gap-2">
-                  <div
-                    class="flex justify-content-between align-items-center flex-wrap gap-2"
-                  >
-                    <span class="text-sm text-color-secondary">
-                      Atendimento: {{ av.openTime }}–{{ av.closeTime }}
-                      @if (av.lunchStart && av.lunchEnd) {
-                        (almoço {{ av.lunchStart }}–{{ av.lunchEnd }})
-                      }
-                    </span>
-                    <span class="text-sm text-color-secondary">
-                      {{ totalDuration }} min
-                    </span>
-                  </div>
-
-                  @if (!hasAnyAvailable(av.slots)) {
-                    <p-message
-                      severity="warn"
-                      text="Sem horários disponíveis neste dia. Tente outra data."
-                    />
-                  }
-
-                  <div class="grid">
-                    @for (slot of av.slots; track slot.startsAt) {
-                      <div class="col-4 md:col-3 lg:col-2">
-                        <p-button
-                          [label]="slot.time"
-                          severity="primary"
-                          [outlined]="!isSlotSelected(slot)"
-                          [disabled]="!slot.available"
-                          [pTooltip]="slotTooltip(slot)"
-                          tooltipPosition="top"
-                          styleClass="w-full"
-                          (onClick)="pickSlot(slot)"
-                        />
-                      </div>
-                    }
-                  </div>
-
-                  <div class="flex flex-wrap gap-3 mt-1 align-items-center">
-                    <span
-                      class="flex align-items-center gap-2 text-xs text-color-secondary"
-                    >
-                      <p-button
-                        label="hh:mm"
-                        severity="primary"
-                        outlined
-                        size="small"
-                        [styleClass]="'pointer-events-none'"
-                      />
-                      Disponível
-                    </span>
-                    <span
-                      class="flex align-items-center gap-2 text-xs text-color-secondary"
-                    >
-                      <p-button
-                        label="hh:mm"
-                        severity="primary"
-                        outlined
-                        disabled
-                        size="small"
-                        [styleClass]="'pointer-events-none'"
-                      />
-                      Indisponível (passe o mouse para ver o motivo)
-                    </span>
-                  </div>
-                </div>
-              }
-            }
-          </div>
+          <app-slot-picker
+            [durationMinutes]="totalDuration"
+            [minDate]="minDate()"
+            [closedDays]="closedDays()"
+            [closedDayLabels]="closedDayLabels()"
+            (slotChange)="selectedSlot.set($event)"
+          />
 
           <div class="flex justify-content-between mt-3">
             <p-button
@@ -319,6 +230,94 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
             </div>
           </div>
 
+          @if (!isAuthenticated()) {
+            <p-divider />
+
+            <div class="flex flex-column gap-3">
+              <div>
+                <p class="text-sm font-semibold text-color-secondary m-0 mb-1">
+                  IDENTIFICAÇÃO
+                </p>
+                <p class="text-color-secondary text-sm m-0">
+                  Para confirmar, conte rapidinho quem é você. Levamos menos de
+                  1 minuto.
+                </p>
+              </div>
+
+              <form
+                [formGroup]="signupForm"
+                class="flex flex-column gap-3"
+                (ngSubmit)="submit()"
+              >
+                <div class="flex flex-column gap-1">
+                  <label>Nome completo</label>
+                  <input
+                    pInputText
+                    formControlName="name"
+                    placeholder="Maria Silva"
+                    class="w-full"
+                  />
+                </div>
+                <div class="flex flex-column gap-1">
+                  <label>E-mail</label>
+                  <input
+                    type="email"
+                    pInputText
+                    formControlName="email"
+                    placeholder="seu@email.com"
+                    class="w-full"
+                  />
+                </div>
+                <div class="flex flex-column gap-1">
+                  <label>Telefone</label>
+                  <p-inputmask
+                    formControlName="phone"
+                    mask="(99) 99999-9999"
+                    placeholder="(11) 99999-9999"
+                    styleClass="w-full"
+                  />
+                </div>
+                <div class="flex flex-column gap-1">
+                  <label>Senha</label>
+                  <p-password
+                    formControlName="password"
+                    [toggleMask]="true"
+                    placeholder="Mínimo 6 caracteres"
+                    styleClass="w-full"
+                    inputStyleClass="w-full"
+                  />
+                </div>
+                <div class="flex flex-column gap-1">
+                  <label>Confirmar senha</label>
+                  <p-password
+                    formControlName="confirmPassword"
+                    [feedback]="false"
+                    [toggleMask]="true"
+                    placeholder="Repita a senha"
+                    styleClass="w-full"
+                    inputStyleClass="w-full"
+                  />
+                  @if (
+                    signupForm.hasError('passwordMismatch') &&
+                    signupForm.get('confirmPassword')?.touched
+                  ) {
+                    <small class="p-error">As senhas não coincidem.</small>
+                  }
+                </div>
+
+                <p class="text-sm text-color-secondary m-0">
+                  Já tem conta?
+                  <a
+                    [routerLink]="['/auth/login']"
+                    [queryParams]="{ returnUrl: '/bookings/new' }"
+                  >
+                    Entrar
+                  </a>
+                </p>
+              </form>
+            </div>
+          }
+
           <div class="flex justify-content-between mt-4">
             <p-button
               label="Voltar"
@@ -326,9 +325,12 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
               (onClick)="goToStep(1)"
             />
             <p-button
-              label="Confirmar"
+              [label]="
+                isAuthenticated() ? 'Confirmar' : 'Criar conta e confirmar'
+              "
               icon="pi pi-check"
               [loading]="loading()"
+              [disabled]="!isAuthenticated() && signupForm.invalid"
               (onClick)="submit()"
             />
           </div>
@@ -351,6 +353,21 @@ export class BookingNewComponent implements OnInit {
   private readonly bookingApi = inject(BookingApiService);
   private readonly establishmentApi = inject(EstablishmentApiService);
   private readonly messageService = inject(MessageService);
+  private readonly auth = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
+
+  readonly isAuthenticated = this.auth.isAuthenticated;
+
+  readonly signupForm = this.fb.group(
+    {
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      email: ['', [Validators.required, Validators.email]],
+      phone: ['', Validators.required],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', Validators.required],
+    },
+    { validators: passwordMatchValidator },
+  );
 
   readonly services = toSignal(this.serviceApi.getServices());
   readonly config = signal<EstablishmentConfig | null>(null);
@@ -363,14 +380,9 @@ export class BookingNewComponent implements OnInit {
   readonly suggestionVisible = signal(false);
   readonly sameWeekExisting = signal<BookingResponse | null>(null);
 
-  readonly availability = signal<AvailabilityResponse | null>(null);
-  readonly loadingAvailability = signal(false);
   readonly selectedSlot = signal<AvailabilitySlot | null>(null);
 
   selectedServices: ServiceResponse[] = [];
-  selectedDay: Date | null = null;
-
-  readonly skeletonRows = Array.from({ length: 12 });
 
   readonly minDate = computed(() => {
     const minDays = this.config()?.minDaysForOnlineUpdate ?? 2;
@@ -383,18 +395,8 @@ export class BookingNewComponent implements OnInit {
     return cfg.businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek);
   });
 
-  private readonly DAY_NAMES_LONG = [
-    'domingos',
-    'segundas-feiras',
-    'terças-feiras',
-    'quartas-feiras',
-    'quintas-feiras',
-    'sextas-feiras',
-    'sábados',
-  ];
-
   readonly closedDayLabels = computed(() =>
-    this.closedDays().map((d) => this.DAY_NAMES_LONG[d]),
+    this.closedDays().map((d) => DAY_NAMES_LONG[d]),
   );
 
   get totalPrice(): number {
@@ -426,64 +428,6 @@ export class BookingNewComponent implements OnInit {
 
   goToStep(step: number): void {
     this.activeStep.set(step);
-  }
-
-  onDayPicked(): void {
-    this.selectedSlot.set(null);
-    if (!this.selectedDay) {
-      this.availability.set(null);
-      return;
-    }
-    this.loadAvailability();
-  }
-
-  onDayCleared(): void {
-    this.selectedDay = null;
-    this.selectedSlot.set(null);
-    this.availability.set(null);
-  }
-
-  private loadAvailability(): void {
-    if (!this.selectedDay) return;
-    const isoDate = DateTime.fromJSDate(this.selectedDay).toFormat(
-      'yyyy-MM-dd',
-    );
-    this.loadingAvailability.set(true);
-    this.availability.set(null);
-
-    this.bookingApi.getAvailability(isoDate, this.totalDuration).subscribe({
-      next: (res) => {
-        this.loadingAvailability.set(false);
-        this.availability.set(res);
-      },
-      error: (err) => {
-        this.loadingAvailability.set(false);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Erro',
-          detail:
-            err.error?.message ?? 'Não foi possível carregar os horários.',
-        });
-      },
-    });
-  }
-
-  hasAnyAvailable(slots: AvailabilitySlot[]): boolean {
-    return slots.some((s) => s.available);
-  }
-
-  pickSlot(slot: AvailabilitySlot): void {
-    if (!slot.available) return;
-    this.selectedSlot.set(slot);
-  }
-
-  isSlotSelected(slot: AvailabilitySlot): boolean {
-    return this.selectedSlot()?.startsAt === slot.startsAt;
-  }
-
-  slotTooltip(slot: AvailabilitySlot): string {
-    if (slot.available) return '';
-    return slot.reason ? REASON_TOOLTIP[slot.reason] : 'Indisponível';
   }
 
   advanceFromDateStep(): void {
@@ -571,9 +515,34 @@ export class BookingNewComponent implements OnInit {
     const slot = this.selectedSlot();
     if (!slot || this.selectedServices.length === 0) return;
 
+    if (!this.isAuthenticated()) {
+      if (this.signupForm.invalid) {
+        this.signupForm.markAllAsTouched();
+        return;
+      }
+      this.loading.set(true);
+      this.submitError.set(null);
+
+      const { name, email, phone, password } = this.signupForm.getRawValue();
+      this.auth.register(name!, email!, phone!, password!).subscribe({
+        next: () => this.createBooking(slot),
+        error: (err) => {
+          this.loading.set(false);
+          const msg: string =
+            err.error?.message ??
+            'Erro ao criar conta. Tente outro e-mail ou faça login.';
+          this.submitError.set(msg);
+        },
+      });
+      return;
+    }
+
     this.loading.set(true);
     this.submitError.set(null);
+    this.createBooking(slot);
+  }
 
+  private createBooking(slot: AvailabilitySlot): void {
     const dto = {
       serviceIds: this.selectedServices.map((s) => s.id),
       scheduledAt: slot.startsAt,
@@ -601,10 +570,8 @@ export class BookingNewComponent implements OnInit {
           msg.toLowerCase().includes('funcionamento') ||
           msg.toLowerCase().includes('almoço')
         ) {
-          // Slot was taken between our check and submit, or somehow invalid — refresh slots
-          this.submitError.set(`${msg} Atualizando horários...`);
+          this.submitError.set(`${msg} Volte e selecione outro horário.`);
           this.selectedSlot.set(null);
-          this.loadAvailability();
           this.goToStep(1);
         } else {
           this.submitError.set(msg);

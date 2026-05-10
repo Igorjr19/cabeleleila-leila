@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
@@ -73,6 +73,7 @@ import { AuthService } from '../../../core/services/auth.service';
 export class LoginComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
 
   readonly loading = signal(false);
@@ -92,8 +93,14 @@ export class LoginComponent {
     this.auth.login(email!, password!).subscribe({
       next: (res) => {
         this.loading.set(false);
+        const returnUrl =
+          this.route.snapshot.queryParamMap.get('returnUrl') ?? null;
+        if (returnUrl) {
+          this.router.navigateByUrl(returnUrl);
+          return;
+        }
         if (res.user.role === Role.ADMIN) {
-          this.router.navigate(['/admin/dashboard']);
+          this.router.navigate(['/admin/today']);
         } else {
           this.router.navigate(['/bookings']);
         }

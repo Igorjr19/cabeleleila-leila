@@ -36,7 +36,29 @@ import { AuthService } from '../../core/services/auth.service';
         <span class="text-xl font-bold text-primary">{{ salonName }}</span>
 
         <nav class="hidden md:flex gap-2 align-items-center">
-          @if (isAdmin()) {
+          @if (!isAuthenticated()) {
+            <a
+              pButton
+              routerLink="/bookings/new"
+              label="Agendar"
+              icon="pi pi-calendar-plus"
+              size="small"
+            ></a>
+            <a
+              pButton
+              text
+              routerLink="/auth/login"
+              label="Entrar"
+              size="small"
+            ></a>
+          } @else if (isAdmin()) {
+            <a
+              pButton
+              text
+              routerLink="/admin/today"
+              routerLinkActive="p-button-outlined"
+              label="Hoje"
+            ></a>
             <a
               pButton
               text
@@ -50,6 +72,13 @@ import { AuthService } from '../../core/services/auth.service';
               routerLink="/admin/bookings"
               routerLinkActive="p-button-outlined"
               label="Agendamentos"
+            ></a>
+            <a
+              pButton
+              text
+              routerLink="/admin/customers"
+              routerLinkActive="p-button-outlined"
+              label="Clientes"
             ></a>
             <a
               pButton
@@ -95,12 +124,14 @@ import { AuthService } from '../../core/services/auth.service';
               label="Perfil"
             ></a>
           }
-          <p-button
-            label="Sair"
-            severity="secondary"
-            size="small"
-            (onClick)="logout()"
-          />
+          @if (isAuthenticated()) {
+            <p-button
+              label="Sair"
+              severity="secondary"
+              size="small"
+              (onClick)="logout()"
+            />
+          }
         </nav>
 
         <!-- Mobile menu button -->
@@ -117,7 +148,32 @@ import { AuthService } from '../../core/services/auth.service';
       @if (mobileMenuOpen) {
         <div class="surface-card border-bottom-1 surface-border md:hidden">
           <div class="flex flex-column p-2 gap-1">
-            @if (isAdmin()) {
+            @if (!isAuthenticated()) {
+              <a
+                pButton
+                class="w-full justify-content-start"
+                routerLink="/bookings/new"
+                label="Agendar"
+                icon="pi pi-calendar-plus"
+                (click)="mobileMenuOpen = false"
+              ></a>
+              <a
+                pButton
+                text
+                class="w-full justify-content-start"
+                routerLink="/auth/login"
+                label="Entrar"
+                (click)="mobileMenuOpen = false"
+              ></a>
+            } @else if (isAdmin()) {
+              <a
+                pButton
+                text
+                class="w-full justify-content-start"
+                routerLink="/admin/today"
+                label="Hoje"
+                (click)="mobileMenuOpen = false"
+              ></a>
               <a
                 pButton
                 text
@@ -132,6 +188,14 @@ import { AuthService } from '../../core/services/auth.service';
                 class="w-full justify-content-start"
                 routerLink="/admin/bookings"
                 label="Agendamentos"
+                (click)="mobileMenuOpen = false"
+              ></a>
+              <a
+                pButton
+                text
+                class="w-full justify-content-start"
+                routerLink="/admin/customers"
+                label="Clientes"
                 (click)="mobileMenuOpen = false"
               ></a>
               <a
@@ -184,12 +248,14 @@ import { AuthService } from '../../core/services/auth.service';
                 (click)="mobileMenuOpen = false"
               ></a>
             }
-            <p-button
-              label="Sair"
-              severity="secondary"
-              styleClass="w-full"
-              (onClick)="logout()"
-            />
+            @if (isAuthenticated()) {
+              <p-button
+                label="Sair"
+                severity="secondary"
+                styleClass="w-full"
+                (onClick)="logout()"
+              />
+            }
           </div>
         </div>
       }
@@ -207,6 +273,7 @@ export class MainLayoutComponent {
 
   readonly salonName = SALON_NAME;
   readonly isAdmin = this.auth.isAdmin;
+  readonly isAuthenticated = this.auth.isAuthenticated;
   mobileMenuOpen = false;
 
   logout(): void {

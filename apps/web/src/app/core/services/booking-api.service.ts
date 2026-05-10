@@ -48,11 +48,19 @@ export class BookingApiService {
     });
   }
 
-  getAvailability(date: string, durationMinutes: number) {
+  getAvailability(
+    date: string,
+    durationMinutes: number,
+    excludeBookingId?: string,
+  ) {
+    let params = new HttpParams()
+      .set('date', date)
+      .set('durationMinutes', durationMinutes.toString());
+    if (excludeBookingId) {
+      params = params.set('excludeBookingId', excludeBookingId);
+    }
     return this.http.get<AvailabilityResponse>(`${this.base}/availability`, {
-      params: new HttpParams()
-        .set('date', date)
-        .set('durationMinutes', durationMinutes.toString()),
+      params,
     });
   }
 

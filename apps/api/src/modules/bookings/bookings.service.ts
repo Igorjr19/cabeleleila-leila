@@ -454,6 +454,7 @@ export class BookingsService {
     dateString: string,
     durationMinutes: number,
     isAdmin: boolean,
+    excludeBookingId?: string,
   ): Promise<AvailabilityResponse> {
     if (
       !Number.isFinite(durationMinutes) ||
@@ -492,7 +493,7 @@ export class BookingsService {
       };
     }
 
-    const existing = await this.bookingRepo
+    const existingQb = this.bookingRepo
       .createQueryBuilder('b')
       .leftJoin('b.bookingServices', 'bs')
       .leftJoin('bs.service', 's')
@@ -509,7 +510,15 @@ export class BookingsService {
       })
       .andWhere('b.status IN (:...statuses)', {
         statuses: [BookingStatus.PENDING, BookingStatus.CONFIRMED],
-      })
+      });
+
+    if (excludeBookingId) {
+      existingQb.andWhere('b.id != :excludeId', {
+        excludeId: excludeBookingId,
+      });
+    }
+
+    const existing = await existingQb
       .groupBy('b.id, b.scheduled_at')
       .getRawMany<{ id: string; scheduledAt: string; duration: string }>();
 
@@ -541,7 +550,7 @@ export class BookingsService {
       return `${h}:${m}`;
     };
 
-    const SLOT_STEP = 30;
+    const SLOT_STEP = 15;
     const openMin = toMin(hours.openTime);
     const closeMin = toMin(hours.closeTime);
     const lunchStartMin = hours.lunchStart ? toMin(hours.lunchStart) : null;

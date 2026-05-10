@@ -1,11 +1,21 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,10 +32,28 @@ export class EstablishmentController {
   constructor(private readonly establishmentService: EstablishmentService) {}
 
   @Get('config')
-  @ApiOperation({ summary: 'Obter configuração do estabelecimento' })
+  @Public()
+  @ApiOperation({
+    summary: 'Obter configuração do estabelecimento',
+    description: 'Endpoint público (cadastro fluido).',
+  })
+  @ApiQuery({
+    name: 'establishmentId',
+    required: false,
+    description: 'Obrigatório quando o usuário não está autenticado',
+  })
   @ApiResponse({ status: 200, description: 'Configuração atual' })
-  getConfig(@CurrentUser() user: JwtPayload) {
-    return this.establishmentService.getConfig(user.establishmentId);
+  getConfig(
+    @CurrentUser() user: JwtPayload | null,
+    @Query('establishmentId') queryEstablishmentId?: string,
+  ) {
+    const establishmentId = user?.establishmentId ?? queryEstablishmentId;
+    if (!establishmentId) {
+      throw new BadRequestException(
+        'establishmentId é obrigatório quando não há autenticação.',
+      );
+    }
+    return this.establishmentService.getConfig(establishmentId);
   }
 
   @Patch('config')

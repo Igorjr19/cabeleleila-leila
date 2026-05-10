@@ -1,19 +1,18 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
+  AvailabilitySlot,
   BookingResponse,
   BookingServiceStatus,
   BookingStatus,
   EstablishmentConfig,
   ServiceResponse,
 } from '@cabeleleila/contracts';
-import { DateTime } from 'luxon';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { DatePickerModule } from 'primeng/datepicker';
 import { DividerModule } from 'primeng/divider';
 import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
@@ -24,13 +23,20 @@ import { AuthService } from '../../../core/services/auth.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { EstablishmentApiService } from '../../../core/services/establishment-api.service';
 import { ServiceApiService } from '../../../core/services/service-api.service';
+import { SlotPickerComponent } from '../../../shared/components/slot-picker/slot-picker.component';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
-import {
-  addDays,
-  isValidBusinessHour,
-  toUtcISO,
-} from '../../../shared/utils/date.utils';
+import { addDays } from '../../../shared/utils/date.utils';
+
+const DAY_NAMES_LONG = [
+  'domingos',
+  'segundas-feiras',
+  'terças-feiras',
+  'quartas-feiras',
+  'quintas-feiras',
+  'sextas-feiras',
+  'sábados',
+];
 
 type EditMode = 'date' | 'services' | null;
 
@@ -70,11 +76,11 @@ const SERVICE_STATUS_SEVERITY: Record<BookingServiceStatus, string> = {
     ButtonModule,
     TagModule,
     MessageModule,
-    DatePickerModule,
     ConfirmDialogModule,
     DividerModule,
     ListboxModule,
     TooltipModule,
+    SlotPickerComponent,
     SpDatetimePipe,
     BrlCurrencyPipe,
   ],
@@ -194,17 +200,15 @@ const SERVICE_STATUS_SEVERITY: Record<BookingServiceStatus, string> = {
               <p-divider />
               <div class="flex flex-column gap-2">
                 <label class="font-semibold">Nova data e horário</label>
-                <p-datepicker
-                  [(ngModel)]="newDate"
-                  [showTime]="true"
+                <app-slot-picker
+                  [durationMinutes]="bookingDuration()"
                   [minDate]="minDate"
-                  [hourFormat]="'24'"
-                  (onSelect)="validateNewDate()"
-                  styleClass="w-full"
+                  [closedDays]="closedDays()"
+                  [closedDayLabels]="closedDayLabels()"
+                  [initialScheduledAt]="booking()?.scheduledAt ?? null"
+                  [excludeBookingId]="booking()?.id ?? null"
+                  (slotChange)="newSlot.set($event)"
                 />
-                @if (dateError()) {
-                  <small class="p-error">{{ dateError() }}</small>
-                }
                 <div class="flex gap-2 justify-content-end">
                   <p-button
                     label="Cancelar"
@@ -214,7 +218,7 @@ const SERVICE_STATUS_SEVERITY: Record<BookingServiceStatus, string> = {
                   <p-button
                     label="Salvar"
                     [loading]="saving()"
-                    [disabled]="!newDate || !!dateError()"
+                    [disabled]="!newSlot()"
                     (onClick)="saveDate()"
                   />
                 </div>
@@ -367,17 +371,32 @@ export class BookingDetailComponent implements OnInit {
   readonly booking = signal<BookingResponse | null>(null);
   readonly actionError = signal<string | null>(null);
   readonly editMode = signal<EditMode>(null);
-  readonly dateError = signal<string | null>(null);
   readonly servicesError = signal<string | null>(null);
   readonly allServices = signal<ServiceResponse[] | null>(null);
+  readonly config = signal<EstablishmentConfig | null>(null);
+  readonly newSlot = signal<AvailabilitySlot | null>(null);
 
   readonly isAdmin = this.auth.isAdmin;
   readonly BookingServiceStatusEnum = BookingServiceStatus;
 
-  newDate: Date | null = null;
+  readonly bookingDuration = computed(
+    () =>
+      this.booking()?.services.reduce((sum, s) => sum + s.durationMinutes, 0) ??
+      0,
+  );
+
+  readonly closedDays = computed(() => {
+    const cfg = this.config();
+    if (!cfg) return [];
+    return cfg.businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek);
+  });
+
+  readonly closedDayLabels = computed(() =>
+    this.closedDays().map((d) => DAY_NAMES_LONG[d]),
+  );
+
   editingServices: ServiceResponse[] = [];
   minDate = addDays(2);
-  private config: EstablishmentConfig | null = null;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -393,7 +412,7 @@ export class BookingDetailComponent implements OnInit {
     });
     this.establishmentApi.getConfig().subscribe({
       next: (cfg) => {
-        this.config = cfg;
+        this.config.set(cfg);
         this.minDate = addDays(cfg.minDaysForOnlineUpdate);
       },
     });
@@ -473,14 +492,7 @@ export class BookingDetailComponent implements OnInit {
   }
 
   startEditDate(): void {
-    const scheduledAt = this.booking()?.scheduledAt;
-    if (scheduledAt) {
-      this.newDate = DateTime.fromISO(scheduledAt, { zone: 'utc' })
-        .setZone('America/Sao_Paulo')
-        .setZone('local', { keepLocalTime: true })
-        .toJSDate();
-    }
-    this.dateError.set(null);
+    this.newSlot.set(null);
     this.editMode.set('date');
   }
 
@@ -515,45 +527,27 @@ export class BookingDetailComponent implements OnInit {
 
   cancelEdit(): void {
     this.editMode.set(null);
-    this.newDate = null;
-    this.dateError.set(null);
+    this.newSlot.set(null);
     this.editingServices = [];
     this.servicesError.set(null);
     this.actionError.set(null);
   }
 
-  validateNewDate(): void {
-    if (!this.newDate || !this.config) return;
-    const dt = DateTime.fromJSDate(this.newDate).setZone('America/Sao_Paulo', {
-      keepLocalTime: true,
-    });
-    const totalDuration =
-      this.booking()?.services.reduce((sum, s) => sum + s.durationMinutes, 0) ??
-      0;
-    const result = isValidBusinessHour(
-      dt,
-      this.config.businessHours,
-      totalDuration,
-    );
-    this.dateError.set(
-      result.valid ? null : (result.reason ?? 'Horário inválido'),
-    );
-  }
-
   saveDate(): void {
-    if (!this.newDate) return;
+    const slot = this.newSlot();
+    if (!slot) return;
     const id = this.booking()!.id;
     this.saving.set(true);
     this.actionError.set(null);
 
     this.bookingApi
-      .updateBooking(id, { scheduledAt: toUtcISO(this.newDate) })
+      .updateBooking(id, { scheduledAt: slot.startsAt })
       .subscribe({
         next: (b) => {
           this.saving.set(false);
           this.booking.set(b);
           this.editMode.set(null);
-          this.newDate = null;
+          this.newSlot.set(null);
           this.messageService.add({
             severity: 'success',
             summary: 'Horário alterado',

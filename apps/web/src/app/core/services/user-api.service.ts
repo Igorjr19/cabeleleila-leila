@@ -26,4 +26,19 @@ export class UserApiService {
   updateProfile(dto: UpdateProfileRequest) {
     return this.http.put<UserProfile>(`${this.base}/me`, dto);
   }
+
+  listCustomers() {
+    return this.http.get<CustomerWithStats[]>(`${this.base}/customers`);
+  }
+}
+
+export interface CustomerWithStats {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  totalBookings: number;
+  lastBookingAt: string | null;
+  totalSpent: number;
+  averageTicket: number;
 }

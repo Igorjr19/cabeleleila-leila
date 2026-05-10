@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -97,10 +98,11 @@ export class BookingsController {
   }
 
   @Get('availability')
+  @Public()
   @ApiOperation({
     summary: 'Listar slots de horário disponíveis para uma data',
     description:
-      'Retorna grade de horários (a cada 30 minutos) com flag de disponibilidade — considerando horário de funcionamento, almoço, conflitos com outros agendamentos e regra de antecedência mínima.',
+      'Endpoint público (cadastro fluido). Retorna grade de horários a cada 15 minutos com flag de disponibilidade.',
   })
   @ApiQuery({ name: 'date', required: true, description: 'YYYY-MM-DD' })
   @ApiQuery({
@@ -108,19 +110,33 @@ export class BookingsController {
     required: true,
     description: 'Duração total dos serviços a agendar (minutos)',
   })
+  @ApiQuery({
+    name: 'establishmentId',
+    required: false,
+    description: 'Obrigatório quando o usuário não está autenticado',
+  })
   @ApiResponse({ status: 200, description: 'Lista de slots' })
   async getAvailability(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: JwtPayload | null,
     @Query('date') date: string,
     @Query('durationMinutes') durationMinutesRaw: string,
+    @Query('establishmentId') queryEstablishmentId?: string,
+    @Query('excludeBookingId') excludeBookingId?: string,
   ) {
+    const establishmentId = user?.establishmentId ?? queryEstablishmentId;
+    if (!establishmentId) {
+      throw new NotFoundException(
+        'establishmentId é obrigatório quando não há autenticação.',
+      );
+    }
     const durationMinutes = Number(durationMinutesRaw);
-    const isAdmin = user.role === Role.ADMIN;
+    const isAdmin = user?.role === Role.ADMIN;
     return this.bookingsService.getAvailability(
-      user.establishmentId,
+      establishmentId,
       date,
       durationMinutes,
       isAdmin,
+      excludeBookingId,
     );
   }
 

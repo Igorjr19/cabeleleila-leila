@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,8 +9,10 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { Public } from '../../common/decorators/public.decorator';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -56,20 +59,29 @@ export class ServicesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar serviços do estabelecimento' })
+  @Public()
+  @ApiOperation({
+    summary: 'Listar serviços do estabelecimento',
+    description:
+      'Endpoint público — pode ser chamado sem autenticação (cadastro fluido). Admin autenticado vê serviços inativos também.',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Lista de serviços (admin vê inativos também)',
+    description: 'Lista de serviços',
     type: [ServiceResponseDto],
   })
   findByEstablishment(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: JwtPayload | null,
+    @Query('establishmentId') queryEstablishmentId?: string,
   ): Promise<ServiceResponseDto[]> {
-    const isAdmin = user.role === Role.ADMIN;
-    return this.servicesService.findByEstablishment(
-      user.establishmentId,
-      isAdmin,
-    );
+    const establishmentId = user?.establishmentId ?? queryEstablishmentId;
+    if (!establishmentId) {
+      throw new BadRequestException(
+        'establishmentId é obrigatório quando não há autenticação.',
+      );
+    }
+    const isAdmin = user?.role === Role.ADMIN;
+    return this.servicesService.findByEstablishment(establishmentId, isAdmin);
   }
 
   @Get(':id')

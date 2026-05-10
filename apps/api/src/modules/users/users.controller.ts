@@ -1,4 +1,7 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Role } from './entities/user-role.entity';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -31,6 +34,18 @@ export class UsersController {
   })
   getProfile(@CurrentUser() user: JwtPayload): Promise<User | null> {
     return this.usersService.findById(user.sub);
+  }
+
+  @Get('customers')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Listar clientes do estabelecimento (Admin)',
+    description:
+      'Retorna lista de clientes com estatísticas: total de agendamentos, último agendamento, total gasto e ticket médio.',
+  })
+  listCustomers(@CurrentUser() user: JwtPayload) {
+    return this.usersService.listCustomersWithStats(user.establishmentId);
   }
 
   @Put('me')

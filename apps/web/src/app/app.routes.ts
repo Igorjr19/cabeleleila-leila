@@ -1,7 +1,12 @@
 import { Routes } from '@angular/router';
+import { Role } from '@cabeleleila/contracts';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
-import { Role } from '@cabeleleila/contracts';
+
+const mainLayoutLoader = () =>
+  import('./layout/main-layout/main-layout.component').then(
+    (m) => m.MainLayoutComponent,
+  );
 
 export const routes: Routes = [
   {
@@ -28,12 +33,26 @@ export const routes: Routes = [
       { path: '', redirectTo: 'login', pathMatch: 'full' },
     ],
   },
+
+  // Public booking wizard — no auth required up to the confirmation step
   {
     path: '',
-    loadComponent: () =>
-      import('./layout/main-layout/main-layout.component').then(
-        (m) => m.MainLayoutComponent,
-      ),
+    loadComponent: mainLayoutLoader,
+    children: [
+      {
+        path: 'bookings/new',
+        loadComponent: () =>
+          import('./features/bookings/booking-new/booking-new.component').then(
+            (m) => m.BookingNewComponent,
+          ),
+      },
+    ],
+  },
+
+  // Authenticated routes
+  {
+    path: '',
+    loadComponent: mainLayoutLoader,
     canActivate: [authGuard],
     children: [
       {
@@ -48,13 +67,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/bookings/booking-history/booking-history.component').then(
             (m) => m.BookingHistoryComponent,
-          ),
-      },
-      {
-        path: 'bookings/new',
-        loadComponent: () =>
-          import('./features/bookings/booking-new/booking-new.component').then(
-            (m) => m.BookingNewComponent,
           ),
       },
       {
@@ -81,6 +93,20 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/admin/dashboard/dashboard.component').then(
                 (m) => m.DashboardComponent,
+              ),
+          },
+          {
+            path: 'today',
+            loadComponent: () =>
+              import('./features/admin/today/today.component').then(
+                (m) => m.AdminTodayComponent,
+              ),
+          },
+          {
+            path: 'customers',
+            loadComponent: () =>
+              import('./features/admin/customers/customers.component').then(
+                (m) => m.AdminCustomersComponent,
               ),
           },
           {
@@ -111,11 +137,12 @@ export const routes: Routes = [
                 (m) => m.AdminTimeBlocksComponent,
               ),
           },
-          { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+          { path: '', redirectTo: 'today', pathMatch: 'full' },
         ],
       },
       { path: '', redirectTo: 'bookings', pathMatch: 'full' },
     ],
   },
-  { path: '**', redirectTo: '/bookings' },
+
+  { path: '**', redirectTo: '/bookings/new' },
 ];
