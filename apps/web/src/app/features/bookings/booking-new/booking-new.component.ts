@@ -25,6 +25,7 @@ import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
 import { StepsModule } from 'primeng/steps';
+import { TabsModule } from 'primeng/tabs';
 import { TooltipModule } from 'primeng/tooltip';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { AuthService } from '../../../core/services/auth.service';
@@ -67,6 +68,7 @@ const DAY_NAMES_LONG = [
     ReactiveFormsModule,
     RouterLink,
     StepsModule,
+    TabsModule,
     ButtonModule,
     ListboxModule,
     CardModule,
@@ -260,82 +262,128 @@ const DAY_NAMES_LONG = [
                   IDENTIFICAÇÃO
                 </p>
                 <p class="text-color-secondary text-sm m-0">
-                  Para confirmar, conte rapidinho quem é você. Levamos menos de
-                  1 minuto.
+                  Para confirmar o agendamento, conte rapidinho quem é você.
                 </p>
               </div>
 
-              <form
-                [formGroup]="signupForm"
-                class="flex flex-column gap-3"
-                (ngSubmit)="submit()"
-              >
-                <div class="flex flex-column gap-1">
-                  <label>Nome completo</label>
-                  <input
-                    pInputText
-                    formControlName="name"
-                    placeholder="Maria Silva"
-                    class="w-full"
-                  />
-                </div>
-                <div class="flex flex-column gap-1">
-                  <label>E-mail</label>
-                  <input
-                    type="email"
-                    pInputText
-                    formControlName="email"
-                    placeholder="seu@email.com"
-                    class="w-full"
-                  />
-                </div>
-                <div class="flex flex-column gap-1">
-                  <label>Telefone</label>
-                  <p-inputmask
-                    formControlName="phone"
-                    mask="(99) 99999-9999"
-                    placeholder="(11) 99999-9999"
-                    styleClass="w-full"
-                  />
-                </div>
-                <div class="flex flex-column gap-1">
-                  <label>Senha</label>
-                  <p-password
-                    formControlName="password"
-                    [toggleMask]="true"
-                    placeholder="Mínimo 6 caracteres"
-                    styleClass="w-full"
-                    inputStyleClass="w-full"
-                  />
-                </div>
-                <div class="flex flex-column gap-1">
-                  <label>Confirmar senha</label>
-                  <p-password
-                    formControlName="confirmPassword"
-                    [feedback]="false"
-                    [toggleMask]="true"
-                    placeholder="Repita a senha"
-                    styleClass="w-full"
-                    inputStyleClass="w-full"
-                  />
-                  @if (
-                    signupForm.hasError('passwordMismatch') &&
-                    signupForm.get('confirmPassword')?.touched
-                  ) {
-                    <small class="p-error">As senhas não coincidem.</small>
-                  }
-                </div>
+              <p-tabs [(value)]="authMode">
+                <p-tablist>
+                  <p-tab value="signup">
+                    <i class="pi pi-user-plus mr-2"></i>
+                    Sou novo aqui
+                  </p-tab>
+                  <p-tab value="login">
+                    <i class="pi pi-sign-in mr-2"></i>
+                    Já tenho conta
+                  </p-tab>
+                </p-tablist>
 
-                <p class="text-sm text-color-secondary m-0">
-                  Já tem conta?
-                  <a
-                    [routerLink]="['/auth/login']"
-                    [queryParams]="{ returnUrl: '/bookings/new' }"
-                  >
-                    Entrar
-                  </a>
-                </p>
-              </form>
+                <p-tabpanels>
+                  <p-tabpanel value="signup">
+                    <form
+                      [formGroup]="signupForm"
+                      class="flex flex-column gap-3 pt-3"
+                      (ngSubmit)="submit()"
+                    >
+                      <div class="flex flex-column gap-1">
+                        <label>Nome completo</label>
+                        <input
+                          pInputText
+                          formControlName="name"
+                          placeholder="Maria Silva"
+                          class="w-full"
+                        />
+                      </div>
+                      <div class="flex flex-column gap-1">
+                        <label>E-mail</label>
+                        <input
+                          type="email"
+                          pInputText
+                          formControlName="email"
+                          placeholder="seu@email.com"
+                          class="w-full"
+                        />
+                      </div>
+                      <div class="flex flex-column gap-1">
+                        <label>Telefone</label>
+                        <p-inputmask
+                          formControlName="phone"
+                          mask="(99) 99999-9999"
+                          placeholder="(11) 99999-9999"
+                          styleClass="w-full"
+                        />
+                      </div>
+                      <div class="flex flex-column gap-1">
+                        <label>Senha</label>
+                        <p-password
+                          formControlName="password"
+                          [toggleMask]="true"
+                          placeholder="Mínimo 6 caracteres"
+                          styleClass="w-full"
+                          inputStyleClass="w-full"
+                        />
+                      </div>
+                      <div class="flex flex-column gap-1">
+                        <label>Confirmar senha</label>
+                        <p-password
+                          formControlName="confirmPassword"
+                          [feedback]="false"
+                          [toggleMask]="true"
+                          placeholder="Repita a senha"
+                          styleClass="w-full"
+                          inputStyleClass="w-full"
+                        />
+                        @if (
+                          signupForm.hasError('passwordMismatch') &&
+                          signupForm.get('confirmPassword')?.touched
+                        ) {
+                          <small class="p-error">
+                            As senhas não coincidem.
+                          </small>
+                        }
+                      </div>
+                    </form>
+                  </p-tabpanel>
+
+                  <p-tabpanel value="login">
+                    <form
+                      [formGroup]="loginForm"
+                      class="flex flex-column gap-3 pt-3"
+                      (ngSubmit)="submit()"
+                    >
+                      <div class="flex flex-column gap-1">
+                        <label>E-mail</label>
+                        <input
+                          type="email"
+                          pInputText
+                          formControlName="email"
+                          placeholder="seu@email.com"
+                          class="w-full"
+                        />
+                      </div>
+                      <div class="flex flex-column gap-1">
+                        <label>Senha</label>
+                        <p-password
+                          formControlName="password"
+                          [feedback]="false"
+                          [toggleMask]="true"
+                          placeholder="Sua senha"
+                          styleClass="w-full"
+                          inputStyleClass="w-full"
+                        />
+                      </div>
+                      <p class="text-sm m-0">
+                        <a
+                          [routerLink]="['/auth/forgot-password']"
+                          [queryParams]="{ returnUrl: '/bookings/new' }"
+                        >
+                          Esqueci minha senha
+                        </a>
+                      </p>
+                    </form>
+                  </p-tabpanel>
+                </p-tabpanels>
+              </p-tabs>
             </div>
           }
 
@@ -346,12 +394,10 @@ const DAY_NAMES_LONG = [
               (onClick)="goToStep(1)"
             />
             <p-button
-              [label]="
-                isAuthenticated() ? 'Confirmar' : 'Criar conta e confirmar'
-              "
+              [label]="confirmButtonLabel()"
               icon="pi pi-check"
               [loading]="loading()"
-              [disabled]="!isAuthenticated() && signupForm.invalid"
+              [disabled]="!isAuthenticated() && !currentAuthFormValid()"
               (onClick)="submit()"
             />
           </div>
@@ -390,6 +436,13 @@ export class BookingNewComponent implements OnInit {
     },
     { validators: passwordMatchValidator },
   );
+
+  readonly loginForm = this.fb.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+  });
+
+  authMode: 'signup' | 'login' = 'signup';
 
   readonly services = toSignal(this.serviceApi.getServices());
   readonly config = signal<EstablishmentConfig | null>(null);
@@ -452,6 +505,19 @@ export class BookingNewComponent implements OnInit {
 
   goToStep(step: number): void {
     this.activeStep.set(step);
+  }
+
+  confirmButtonLabel(): string {
+    if (this.isAuthenticated()) return 'Confirmar';
+    return this.authMode === 'signup'
+      ? 'Criar conta e confirmar'
+      : 'Entrar e confirmar';
+  }
+
+  currentAuthFormValid(): boolean {
+    return this.authMode === 'signup'
+      ? this.signupForm.valid
+      : this.loginForm.valid;
   }
 
   goBack(): void {
@@ -554,30 +620,57 @@ export class BookingNewComponent implements OnInit {
     if (!slot || this.selectedServices.length === 0) return;
 
     if (!this.isAuthenticated()) {
-      if (this.signupForm.invalid) {
-        this.signupForm.markAllAsTouched();
-        return;
+      if (this.authMode === 'signup') {
+        this.handleSignupAndBook(slot);
+      } else {
+        this.handleLoginAndBook(slot);
       }
-      this.loading.set(true);
-      this.submitError.set(null);
-
-      const { name, email, phone, password } = this.signupForm.getRawValue();
-      this.auth.register(name!, email!, phone!, password!).subscribe({
-        next: () => this.createBooking(slot),
-        error: (err) => {
-          this.loading.set(false);
-          const msg: string =
-            err.error?.message ??
-            'Erro ao criar conta. Tente outro e-mail ou faça login.';
-          this.submitError.set(msg);
-        },
-      });
       return;
     }
 
     this.loading.set(true);
     this.submitError.set(null);
     this.createBooking(slot);
+  }
+
+  private handleSignupAndBook(slot: AvailabilitySlot): void {
+    if (this.signupForm.invalid) {
+      this.signupForm.markAllAsTouched();
+      return;
+    }
+    this.loading.set(true);
+    this.submitError.set(null);
+
+    const { name, email, phone, password } = this.signupForm.getRawValue();
+    this.auth.register(name!, email!, phone!, password!).subscribe({
+      next: () => this.createBooking(slot),
+      error: (err) => {
+        this.loading.set(false);
+        const msg: string =
+          err.error?.message ??
+          'Erro ao criar conta. Tente outro e-mail ou faça login.';
+        this.submitError.set(msg);
+      },
+    });
+  }
+
+  private handleLoginAndBook(slot: AvailabilitySlot): void {
+    if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
+      return;
+    }
+    this.loading.set(true);
+    this.submitError.set(null);
+
+    const { email, password } = this.loginForm.getRawValue();
+    this.auth.login(email!, password!).subscribe({
+      next: () => this.createBooking(slot),
+      error: (err) => {
+        this.loading.set(false);
+        const msg: string = err.error?.message ?? 'E-mail ou senha inválidos.';
+        this.submitError.set(msg);
+      },
+    });
   }
 
   private createBooking(slot: AvailabilitySlot): void {

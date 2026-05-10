@@ -21,52 +21,71 @@ import { AuthService } from '../../core/services/auth.service';
     MessageModule,
   ],
   template: `
-    <div class="max-w-lg mx-auto">
-      <h2 class="mb-4">Meu Perfil</h2>
+    <div class="flex justify-content-center py-4">
+      <div class="w-full" style="max-width: 28rem">
+        <p-card>
+          <div class="flex flex-column align-items-center gap-2 mb-4">
+            <div class="profile-avatar">
+              <i class="pi pi-user"></i>
+            </div>
+            <h2 class="m-0">Meu Perfil</h2>
+            <span class="text-sm text-color-secondary">{{ email() }}</span>
+          </div>
 
-      <p-card>
-        <form
-          [formGroup]="form"
-          (ngSubmit)="submit()"
-          class="flex flex-column gap-3"
-        >
-          <div class="flex flex-column gap-1">
-            <label>E-mail</label>
-            <input
-              pInputText
-              [value]="email()"
-              readonly
-              class="w-full surface-100"
+          <form
+            [formGroup]="form"
+            (ngSubmit)="submit()"
+            class="flex flex-column gap-3"
+          >
+            <div class="flex flex-column gap-1">
+              <label for="name" class="text-sm font-medium">Nome</label>
+              <input
+                id="name"
+                pInputText
+                formControlName="name"
+                class="w-full"
+              />
+            </div>
+
+            <div class="flex flex-column gap-1">
+              <label for="phone" class="text-sm font-medium">Telefone</label>
+              <p-inputmask
+                id="phone"
+                formControlName="phone"
+                mask="(99) 99999-9999"
+                placeholder="(XX) XXXXX-XXXX"
+                styleClass="w-full"
+              />
+            </div>
+
+            <p-button
+              type="submit"
+              label="Salvar"
+              icon="pi pi-check"
+              [loading]="loading()"
+              [disabled]="form.invalid || form.pristine"
+              styleClass="w-full mt-2"
             />
-          </div>
-
-          <div class="flex flex-column gap-1">
-            <label for="name">Nome</label>
-            <input id="name" pInputText formControlName="name" class="w-full" />
-          </div>
-
-          <div class="flex flex-column gap-1">
-            <label for="phone">Telefone</label>
-            <p-inputmask
-              id="phone"
-              formControlName="phone"
-              mask="(99) 99999-9999"
-              placeholder="(XX) XXXXX-XXXX"
-              styleClass="w-full"
-            />
-          </div>
-
-          <p-button
-            type="submit"
-            label="Salvar"
-            [loading]="loading()"
-            [disabled]="form.invalid || form.pristine"
-            styleClass="w-full"
-          />
-        </form>
-      </p-card>
+          </form>
+        </p-card>
+      </div>
     </div>
   `,
+  styles: [
+    `
+      .profile-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 4rem;
+        height: 4rem;
+        border-radius: 50%;
+        background: var(--primary-50, #fef2f4);
+        color: var(--primary-color);
+        font-size: 1.75rem;
+      }
+    `,
+  ],
 })
 export class ProfileComponent implements OnInit {
   private readonly userApi = inject(UserApiService);

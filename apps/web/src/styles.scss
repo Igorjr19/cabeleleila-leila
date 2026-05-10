@@ -22,6 +22,23 @@ a[pButton] {
   text-decoration: none;
 }
 
+/* Texto-link comum (Cadastre-se, Esqueci minha senha, etc.) — força cor rosa
+   do tema, ignorando o azul/roxo padrão de visited do navegador. */
+a:not(.p-button):not([pButton]) {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--primary-600, var(--primary-color));
+    text-decoration: underline;
+  }
+
+  &:visited {
+    color: var(--primary-color);
+  }
+}
+
 h1,
 h2,
 h3,

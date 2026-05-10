@@ -74,14 +74,6 @@ interface TimelineItem {
             Visão operacional do dia e desempenho da semana.
           </p>
         </div>
-        <p-button
-          label="Bloquear horário"
-          icon="pi pi-ban"
-          severity="secondary"
-          outlined
-          size="small"
-          (onClick)="router.navigate(['/admin/time-blocks'])"
-        />
       </div>
 
       <p-tabs [(value)]="activeTab">
