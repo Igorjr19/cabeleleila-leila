@@ -84,6 +84,20 @@ export class AuthService {
     this.router.navigate(['/auth/login']);
   }
 
+  requestPasswordReset(email: string) {
+    return this.http.post<{ token: string | null; expiresAt: string | null }>(
+      `${this.apiUrl}/auth/forgot-password`,
+      { email },
+    );
+  }
+
+  resetPassword(token: string, newPassword: string) {
+    return this.http.post<{ ok: true }>(`${this.apiUrl}/auth/reset-password`, {
+      token,
+      newPassword,
+    });
+  }
+
   private saveSession(res: AuthResponse): void {
     localStorage.setItem(TOKEN_KEY, res.accessToken);
     localStorage.setItem(USER_KEY, JSON.stringify(res.user));

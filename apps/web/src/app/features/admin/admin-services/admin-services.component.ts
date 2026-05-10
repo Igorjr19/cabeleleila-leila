@@ -15,6 +15,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TagModule } from 'primeng/tag';
+import { TextareaModule } from 'primeng/textarea';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import {
@@ -33,6 +34,7 @@ import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
     ReactiveFormsModule,
     InputTextModule,
     InputNumberModule,
+    TextareaModule,
     ButtonModule,
   ],
   template: `
@@ -66,6 +68,19 @@ import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
           styleClass="w-full"
         />
       </div>
+      <div class="flex flex-column gap-1">
+        <label>Descrição (opcional)</label>
+        <textarea
+          pTextarea
+          formControlName="description"
+          rows="3"
+          placeholder="Ex: Corte tradicional com lavagem e finalização."
+          class="w-full"
+        ></textarea>
+        <small class="text-color-secondary">
+          Aparece para o cliente ao escolher o serviço.
+        </small>
+      </div>
       <div class="flex gap-2 justify-content-end">
         <p-button
           label="Cancelar"
@@ -88,9 +103,19 @@ export class ServiceFormComponent {
 
   @Input() set service(s: ServiceResponse | null) {
     if (s) {
-      this.form.patchValue(s);
+      this.form.patchValue({
+        name: s.name,
+        price: s.price,
+        durationMinutes: s.durationMinutes,
+        description: s.description ?? '',
+      });
     } else {
-      this.form.reset({ name: '', price: 0, durationMinutes: 30 });
+      this.form.reset({
+        name: '',
+        price: 0,
+        durationMinutes: 30,
+        description: '',
+      });
     }
   }
   @Input() loading = signal(false);
@@ -103,6 +128,7 @@ export class ServiceFormComponent {
     name: ['', [Validators.required, Validators.minLength(2)]],
     price: [0, [Validators.required, Validators.min(0.01)]],
     durationMinutes: [30, [Validators.required, Validators.min(5)]],
+    description: [''],
   });
 
   save(): void {
@@ -112,6 +138,7 @@ export class ServiceFormComponent {
       name: v.name!,
       price: v.price!,
       durationMinutes: v.durationMinutes!,
+      description: v.description?.trim() ? v.description : null,
     });
   }
 }

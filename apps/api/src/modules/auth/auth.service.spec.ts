@@ -1,4 +1,6 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
@@ -38,6 +40,13 @@ describe('AuthService', () => {
     sign: jest.fn().mockReturnValue('jwt.token.here'),
   };
 
+  const mockResetTokenRepo = {
+    delete: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -46,6 +55,10 @@ describe('AuthService', () => {
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        {
+          provide: getRepositoryToken(PasswordResetToken),
+          useValue: mockResetTokenRepo,
+        },
       ],
     }).compile();
 
@@ -66,16 +79,34 @@ describe('AuthService', () => {
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
 
       await expect(
-        service.register('Maria', 'maria@test.com', 'senha123', EST_ID),
+        service.register(
+          'Maria',
+          'maria@test.com',
+          '11999999999',
+          'senha123',
+          EST_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       await expect(
-        service.register('Maria', 'maria@test.com', 'senha123', EST_ID),
+        service.register(
+          'Maria',
+          'maria@test.com',
+          '11999999999',
+          'senha123',
+          EST_ID,
+        ),
       ).rejects.toThrow('Usuário com este email já existe');
     });
 
     it('faz hash da senha antes de salvar', async () => {
-      await service.register('Maria', 'maria@test.com', 'senha123', EST_ID);
+      await service.register(
+        'Maria',
+        'maria@test.com',
+        '11999999999',
+        'senha123',
+        EST_ID,
+      );
 
       expect(bcrypt.hash).toHaveBeenCalledWith('senha123', 10);
       expect(mockUsersService.create).toHaveBeenCalledWith(
@@ -84,7 +115,13 @@ describe('AuthService', () => {
     });
 
     it('cria a role CUSTOMER para o novo usuário', async () => {
-      await service.register('Maria', 'maria@test.com', 'senha123', EST_ID);
+      await service.register(
+        'Maria',
+        'maria@test.com',
+        '11999999999',
+        'senha123',
+        EST_ID,
+      );
 
       expect(mockUsersService.createRole).toHaveBeenCalledWith(
         mockUser.id,
@@ -97,6 +134,7 @@ describe('AuthService', () => {
       const result = await service.register(
         'Maria',
         'maria@test.com',
+        '11999999999',
         'senha123',
         EST_ID,
       );
@@ -114,7 +152,13 @@ describe('AuthService', () => {
     });
 
     it('assina o JWT com o payload correto', async () => {
-      await service.register('Maria', 'maria@test.com', 'senha123', EST_ID);
+      await service.register(
+        'Maria',
+        'maria@test.com',
+        '11999999999',
+        'senha123',
+        EST_ID,
+      );
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -17,15 +17,19 @@ export class ServicesService {
 
   async create(
     establishmentId: string,
-    name: string,
-    price: number,
-    durationMinutes: number,
+    data: {
+      name: string;
+      price: number;
+      durationMinutes: number;
+      description?: string | null;
+    },
   ): Promise<Service> {
     const service = this.serviceRepo.create({
       establishmentId,
-      name,
-      price,
-      durationMinutes,
+      name: data.name,
+      price: data.price,
+      durationMinutes: data.durationMinutes,
+      description: data.description ?? null,
     });
     return this.serviceRepo.save(service);
   }

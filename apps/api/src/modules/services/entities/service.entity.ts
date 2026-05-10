@@ -34,6 +34,9 @@ export class Service {
   @Column({ type: 'boolean', default: true })
   active: boolean;
 
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
   @ManyToOne(() => Establishment, (e) => e.services)
   @JoinColumn({ name: 'establishment_id' })
   establishment: Establishment;

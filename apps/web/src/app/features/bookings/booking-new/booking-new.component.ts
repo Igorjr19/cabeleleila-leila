@@ -25,6 +25,8 @@ import { ListboxModule } from 'primeng/listbox';
 import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
 import { StepsModule } from 'primeng/steps';
+import { TooltipModule } from 'primeng/tooltip';
+import { ServiceDetailDialogComponent } from '../../../shared/components/service-detail-dialog/service-detail-dialog.component';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { AuthService } from '../../../core/services/auth.service';
 import { BookingApiService } from '../../../core/services/booking-api.service';
@@ -73,7 +75,9 @@ const DAY_NAMES_LONG = [
     InputTextModule,
     InputMaskModule,
     PasswordModule,
+    TooltipModule,
     SlotPickerComponent,
+    ServiceDetailDialogComponent,
     BrlCurrencyPipe,
     SpDatetimePipe,
     BookingSuggestionDialogComponent,
@@ -112,7 +116,7 @@ const DAY_NAMES_LONG = [
             >
               <ng-template pTemplate="option" let-service>
                 <div
-                  class="flex justify-content-between align-items-center w-full"
+                  class="flex justify-content-between align-items-center w-full gap-2"
                 >
                   <span>{{ service.name }}</span>
                   <div class="flex align-items-center gap-2">
@@ -122,10 +126,25 @@ const DAY_NAMES_LONG = [
                     <span class="font-bold text-primary">{{
                       service.price | brlCurrency
                     }}</span>
+                    <p-button
+                      icon="pi pi-info-circle"
+                      text
+                      rounded
+                      size="small"
+                      pTooltip="Ver detalhes"
+                      tooltipPosition="left"
+                      (onClick)="openServiceDetail($event, service)"
+                    />
                   </div>
                 </div>
               </ng-template>
             </p-listbox>
+
+            <app-service-detail-dialog
+              [visible]="serviceDetailVisible()"
+              [service]="serviceDetail()"
+              (dismissed)="closeServiceDetail()"
+            />
 
             @if (selectedServices.length > 0) {
               <p-divider />
@@ -381,6 +400,8 @@ export class BookingNewComponent implements OnInit {
   readonly sameWeekExisting = signal<BookingResponse | null>(null);
 
   readonly selectedSlot = signal<AvailabilitySlot | null>(null);
+  readonly serviceDetail = signal<ServiceResponse | null>(null);
+  readonly serviceDetailVisible = signal(false);
 
   selectedServices: ServiceResponse[] = [];
 
@@ -428,6 +449,16 @@ export class BookingNewComponent implements OnInit {
 
   goToStep(step: number): void {
     this.activeStep.set(step);
+  }
+
+  openServiceDetail(event: Event, service: ServiceResponse): void {
+    event.stopPropagation();
+    this.serviceDetail.set(service);
+    this.serviceDetailVisible.set(true);
+  }
+
+  closeServiceDetail(): void {
+    this.serviceDetailVisible.set(false);
   }
 
   advanceFromDateStep(): void {

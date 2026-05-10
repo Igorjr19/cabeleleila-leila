@@ -6,6 +6,14 @@ export interface WeeklyStats {
   cancelledBookings: number;
   finishedBookings: number;
   totalRevenue: number;
+  topServices: TopServiceStat[];
+}
+
+export interface TopServiceStat {
+  serviceId: string;
+  name: string;
+  count: number;
+  revenue: number;
 }
 
 export interface WeeklyPerformanceResponse {

@@ -67,6 +67,9 @@ import { AuthService } from '../../../core/services/auth.service';
       <p class="text-center m-0 text-sm">
         Não tem conta? <a routerLink="/auth/register">Cadastre-se</a>
       </p>
+      <p class="text-center m-0 text-sm">
+        <a routerLink="/auth/forgot-password">Esqueci minha senha</a>
+      </p>
     </form>
   `,
 })

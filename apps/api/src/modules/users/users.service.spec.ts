@@ -112,6 +112,7 @@ describe('UsersService', () => {
       const data = {
         name: 'Maria',
         email: 'maria@test.com',
+        phone: '11999999999',
         password: 'mypassword',
       } satisfies CreateUserData;
 

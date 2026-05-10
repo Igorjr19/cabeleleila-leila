@@ -1,29 +1,37 @@
 import { CreateServiceRequest } from '@cabeleleila/contracts';
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateServiceDto implements CreateServiceRequest {
-  @ApiProperty({
-    example: 'Corte de cabelo',
-    description: 'Nome do serviço',
-  })
+  @ApiProperty({ example: 'Corte de cabelo' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({
-    example: 80.5,
-    description: 'Preço do serviço em reais',
-  })
+  @ApiProperty({ example: 80.5 })
   @IsNumber()
   @IsPositive()
   price: number;
 
-  @ApiProperty({
-    example: 60,
-    description: 'Duração do serviço em minutos',
-  })
+  @ApiProperty({ example: 60 })
   @IsNumber()
   @IsPositive()
   durationMinutes: number;
+
+  @ApiPropertyOptional({
+    example:
+      'Corte tradicional masculino ou feminino com finalização. Lavagem inclusa.',
+    description: 'Descrição opcional exibida ao cliente',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string | null;
 }

@@ -30,15 +30,36 @@ export const routes: Routes = [
             (m) => m.RegisterComponent,
           ),
       },
+      {
+        path: 'forgot-password',
+        loadComponent: () =>
+          import('./features/auth/forgot-password/forgot-password.component').then(
+            (m) => m.ForgotPasswordComponent,
+          ),
+      },
+      {
+        path: 'reset-password',
+        loadComponent: () =>
+          import('./features/auth/reset-password/reset-password.component').then(
+            (m) => m.ResetPasswordComponent,
+          ),
+      },
       { path: '', redirectTo: 'login', pathMatch: 'full' },
     ],
   },
 
-  // Public booking wizard — no auth required up to the confirmation step
+  // Public routes — no auth required (catalog and booking wizard up to confirmation)
   {
     path: '',
     loadComponent: mainLayoutLoader,
     children: [
+      {
+        path: 'services',
+        loadComponent: () =>
+          import('./features/services/service-list/service-list.component').then(
+            (m) => m.ServiceListComponent,
+          ),
+      },
       {
         path: 'bookings/new',
         loadComponent: () =>
@@ -55,13 +76,6 @@ export const routes: Routes = [
     loadComponent: mainLayoutLoader,
     canActivate: [authGuard],
     children: [
-      {
-        path: 'services',
-        loadComponent: () =>
-          import('./features/services/service-list/service-list.component').then(
-            (m) => m.ServiceListComponent,
-          ),
-      },
       {
         path: 'bookings',
         loadComponent: () =>

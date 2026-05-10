@@ -178,13 +178,16 @@ describe('AuthService', () => {
 
   describe('register()', () => {
     it('envia POST para /auth/register com establishmentId', () => {
-      service.register('João', 'joao@test.com', 'senha123').subscribe();
+      service
+        .register('João', 'joao@test.com', '11999999999', 'senha123')
+        .subscribe();
 
       const req = httpMock.expectOne(`${environment.apiUrl}/auth/register`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({
         name: 'João',
         email: 'joao@test.com',
+        phone: '11999999999',
         password: 'senha123',
         establishmentId: EST_ID,
       });
@@ -192,7 +195,9 @@ describe('AuthService', () => {
     });
 
     it('salva sessão e atualiza signals após registro', () => {
-      service.register('João', 'joao@test.com', 'senha123').subscribe();
+      service
+        .register('João', 'joao@test.com', '11999999999', 'senha123')
+        .subscribe();
 
       const req = httpMock.expectOne(`${environment.apiUrl}/auth/register`);
       req.flush(mockCustomer);

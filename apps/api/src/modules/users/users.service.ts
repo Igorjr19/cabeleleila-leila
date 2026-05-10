@@ -43,6 +43,10 @@ export class UsersService {
     return this.userRepo.save(user);
   }
 
+  async updatePassword(userId: string, hashedPassword: string): Promise<void> {
+    await this.userRepo.update({ id: userId }, { password: hashedPassword });
+  }
+
   findRoleByUserAndEstablishment(
     userId: string,
     establishmentId: string,

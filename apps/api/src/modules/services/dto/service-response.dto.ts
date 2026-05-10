@@ -14,4 +14,6 @@ export class ServiceResponseDto implements ServiceResponse {
   durationMinutes: number;
   @ApiProperty()
   active: boolean;
+  @ApiProperty({ nullable: true })
+  description: string | null;
 }

@@ -143,6 +143,47 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         </div>
       }
 
+      <!-- Top services -->
+      @if (stats()?.topServices?.length; as count) {
+        <p-card>
+          <ng-template pTemplate="title">
+            <span class="flex align-items-center gap-2">
+              <i class="pi pi-star-fill text-primary"></i>
+              Serviços mais procurados
+            </span>
+          </ng-template>
+          <div class="flex flex-column gap-2">
+            @for (
+              s of stats()!.topServices;
+              track s.serviceId;
+              let i = $index
+            ) {
+              <div
+                class="flex align-items-center justify-content-between gap-3 surface-50 border-round p-3 flex-wrap"
+              >
+                <div class="flex align-items-center gap-3">
+                  <span
+                    class="border-circle bg-primary text-white flex align-items-center justify-content-center font-bold"
+                    style="width: 2rem; height: 2rem"
+                  >
+                    {{ i + 1 }}
+                  </span>
+                  <div class="flex flex-column">
+                    <span class="font-semibold">{{ s.name }}</span>
+                    <span class="text-sm text-color-secondary">
+                      {{ s.count }} agendamento(s)
+                    </span>
+                  </div>
+                </div>
+                <span class="font-bold text-primary">
+                  {{ s.revenue | brlCurrency }}
+                </span>
+              </div>
+            }
+          </div>
+        </p-card>
+      }
+
       <!-- Bookings table -->
       <div>
         <h3 class="mb-2">Agendamentos da semana</h3>

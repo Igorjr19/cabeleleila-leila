@@ -51,6 +51,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: '',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'senha123',
       });
@@ -61,6 +62,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'A',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'senha123',
       });
@@ -71,6 +73,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'Maria',
         email: 'invalido',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'senha123',
       });
@@ -81,6 +84,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'Maria',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: '123',
         confirmPassword: '123',
       });
@@ -91,6 +95,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'Maria',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'senha123',
       });
@@ -105,6 +110,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'Maria',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'senha456',
       });
@@ -116,6 +122,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'Maria',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'senha123',
       });
@@ -126,6 +133,7 @@ describe('RegisterComponent', () => {
       component.form.setValue({
         name: 'Maria',
         email: 'maria@test.com',
+        phone: '(11) 99999-9999',
         password: 'senha123',
         confirmPassword: 'errada',
       });
@@ -142,6 +150,7 @@ describe('RegisterComponent', () => {
     const validData = {
       name: 'Maria',
       email: 'maria@test.com',
+      phone: '(11) 99999-9999',
       password: 'senha123',
       confirmPassword: 'senha123',
     };
@@ -161,6 +170,7 @@ describe('RegisterComponent', () => {
       expect(authSpy.register).toHaveBeenCalledWith(
         'Maria',
         'maria@test.com',
+        '(11) 99999-9999',
         'senha123',
       );
     }));

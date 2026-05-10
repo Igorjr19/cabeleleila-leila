@@ -63,6 +63,10 @@ describe('BookingsService', () => {
     create: jest.fn(),
     save: jest.fn(),
     delete: jest.fn(),
+    find: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn(),
+    count: jest.fn().mockResolvedValue(0),
+    remove: jest.fn(),
   };
 
   const mockServicesService = {
@@ -91,19 +95,25 @@ describe('BookingsService', () => {
       async (cb: (manager: typeof mockEntityManager) => Promise<unknown>) =>
         cb(mockEntityManager),
     ),
+    // checkTimeSlotConflict() runs raw SQL through DataSource.query()
+    query: jest.fn().mockResolvedValue([]),
   };
 
   const mockQueryBuilder = {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
     getOne: jest.fn(),
     getMany: jest.fn(),
     getRawOne: jest.fn(),
+    getRawMany: jest.fn().mockResolvedValue([]),
   };
 
   beforeEach(async () => {
@@ -320,7 +330,7 @@ describe('BookingsService', () => {
 
   describe('updateStatus()', () => {
     it('lança NotFoundException quando booking não existe', async () => {
-      mockBookingRepo.findOneBy.mockResolvedValue(null);
+      mockBookingRepo.findOne.mockResolvedValue(null);
 
       await expect(
         service.updateStatus(BOOKING_ID, EST_ID, {
@@ -331,11 +341,24 @@ describe('BookingsService', () => {
 
     it('atualiza o status com sucesso', async () => {
       const booking = makeBooking();
-      mockBookingRepo.findOneBy.mockResolvedValue(booking);
+      mockBookingRepo.findOne.mockResolvedValue(booking);
       mockBookingRepo.save.mockResolvedValue({
         ...booking,
         status: BookingStatus.CONFIRMED,
       });
+      // PENDING → CONFIRMED requires:
+      // 1) all booking_services decided (count of PENDING == 0)
+      // 2) at least one CONFIRMED
+      mockBookingServiceRepo.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1);
+      // findById call at the end of updateStatus
+      jest.spyOn(service, 'findById').mockResolvedValue({
+        ...booking,
+        status: BookingStatus.CONFIRMED,
+        customerName: '',
+        services: [],
+      } as never);
 
       const result = await service.updateStatus(BOOKING_ID, EST_ID, {
         status: BookingStatus.CONFIRMED,

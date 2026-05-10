@@ -659,6 +659,34 @@ export class BookingsService {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
+    const topServicesRaw = await this.bookingRepo
+      .createQueryBuilder('b')
+      .innerJoin('b.bookingServices', 'bs')
+      .innerJoin('bs.service', 's')
+      .select('s.id', 'serviceId')
+      .addSelect('s.name', 'name')
+      .addSelect('COUNT(bs.id)', 'count')
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN b.status != 'CANCELLED' AND bs.status != 'DECLINED' THEN bs.price_at_booking END), 0)`,
+        'revenue',
+      )
+      .where('b.establishment_id = :est', { est: establishmentId })
+      .andWhere(
+        `DATE_TRUNC('week', b.scheduled_at) = DATE_TRUNC('week', :referenceDate::timestamptz)`,
+        { referenceDate: referenceDate.toISOString() },
+      )
+      .andWhere(`b.status != 'CANCELLED'`)
+      .andWhere(`bs.status != 'DECLINED'`)
+      .groupBy('s.id, s.name')
+      .orderBy('COUNT(bs.id)', 'DESC')
+      .limit(3)
+      .getRawMany<{
+        serviceId: string;
+        name: string;
+        count: string;
+        revenue: string;
+      }>();
+
     return {
       weekStart: weekStart.toISOString(),
       weekEnd: weekEnd.toISOString(),
@@ -667,6 +695,12 @@ export class BookingsService {
       cancelledBookings: parseInt(result?.cancelledBookings ?? '0', 10),
       finishedBookings: parseInt(result?.finishedBookings ?? '0', 10),
       totalRevenue: parseFloat(result?.totalRevenue ?? '0'),
+      topServices: topServicesRaw.map((r) => ({
+        serviceId: r.serviceId,
+        name: r.name,
+        count: parseInt(r.count, 10),
+        revenue: parseFloat(r.revenue),
+      })),
     };
   }
 

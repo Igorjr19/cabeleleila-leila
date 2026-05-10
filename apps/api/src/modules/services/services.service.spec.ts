@@ -53,13 +53,18 @@ describe('ServicesService', () => {
       mockRepo.create.mockReturnValue(svc);
       mockRepo.save.mockResolvedValue(svc);
 
-      const result = await service.create(EST_ID, 'Corte de Cabelo', 80, 60);
+      const result = await service.create(EST_ID, {
+        name: 'Corte de Cabelo',
+        price: 80,
+        durationMinutes: 60,
+      });
 
       expect(mockRepo.create).toHaveBeenCalledWith({
         establishmentId: EST_ID,
         name: 'Corte de Cabelo',
         price: 80,
         durationMinutes: 60,
+        description: null,
       });
       expect(result.name).toBe('Corte de Cabelo');
       expect(result.price).toBe(80);

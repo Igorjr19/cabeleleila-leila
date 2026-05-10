@@ -50,12 +50,7 @@ export class ServicesController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateServiceDto,
   ): Promise<ServiceResponseDto> {
-    return this.servicesService.create(
-      user.establishmentId,
-      dto.name,
-      dto.price,
-      dto.durationMinutes,
-    );
+    return this.servicesService.create(user.establishmentId, dto);
   }
 
   @Get()
