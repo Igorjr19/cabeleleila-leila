@@ -521,9 +521,7 @@ export class DashboardComponent implements OnInit {
   readonly weekRangeLabel = computed(() => {
     const start = this.weekStart();
     const end = start.plus({ days: 6 });
-    const sameMonth = start.month === end.month;
-    const startFmt = sameMonth ? 'dd' : 'dd/MM';
-    return `${start.toFormat(startFmt)} – ${end.toFormat('dd/MM/yyyy')}`;
+    return `${start.toFormat(start.toFormat('dd/MM/yyyy'))} – ${end.toFormat('dd/MM/yyyy')}`;
   });
 
   readonly isCurrentWeek = computed(() => {
