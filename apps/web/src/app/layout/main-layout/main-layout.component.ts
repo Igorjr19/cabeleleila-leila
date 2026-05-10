@@ -63,16 +63,9 @@ import { AuthService } from '../../core/services/auth.service';
             <a
               pButton
               text
-              routerLink="/admin/today"
-              routerLinkActive="p-button-outlined"
-              label="Hoje"
-            ></a>
-            <a
-              pButton
-              text
               routerLink="/admin/dashboard"
               routerLinkActive="p-button-outlined"
-              label="Dashboard"
+              label="Painel"
             ></a>
             <a
               pButton
@@ -186,16 +179,8 @@ import { AuthService } from '../../core/services/auth.service';
                 pButton
                 text
                 class="w-full justify-content-start"
-                routerLink="/admin/today"
-                label="Hoje"
-                (click)="mobileMenuOpen = false"
-              ></a>
-              <a
-                pButton
-                text
-                class="w-full justify-content-start"
                 routerLink="/admin/dashboard"
-                label="Dashboard"
+                label="Painel"
                 (click)="mobileMenuOpen = false"
               ></a>
               <a

@@ -103,7 +103,7 @@ export class LoginComponent {
           return;
         }
         if (res.user.role === Role.ADMIN) {
-          this.router.navigate(['/admin/today']);
+          this.router.navigate(['/admin/dashboard']);
         } else {
           this.router.navigate(['/bookings']);
         }

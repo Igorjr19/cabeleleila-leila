@@ -109,13 +109,9 @@ export const routes: Routes = [
                 (m) => m.DashboardComponent,
               ),
           },
-          {
-            path: 'today',
-            loadComponent: () =>
-              import('./features/admin/today/today.component').then(
-                (m) => m.AdminTodayComponent,
-              ),
-          },
+          // Backwards-compat: /admin/today redireciona para /admin/dashboard
+          // (a aba "Hoje" agora vive dentro do dashboard).
+          { path: 'today', redirectTo: 'dashboard', pathMatch: 'full' },
           {
             path: 'customers',
             loadComponent: () =>
@@ -151,7 +147,7 @@ export const routes: Routes = [
                 (m) => m.AdminTimeBlocksComponent,
               ),
           },
-          { path: '', redirectTo: 'today', pathMatch: 'full' },
+          { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
         ],
       },
       { path: '', redirectTo: 'bookings', pathMatch: 'full' },
