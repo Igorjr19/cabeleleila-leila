@@ -540,13 +540,16 @@ export class DashboardComponent implements OnInit {
     };
 
     this.bookingApi
-      .getAllBookings({
-        startDate: startOfDay.toISO()!,
-        endDate: endOfDay.toISO()!,
-      })
+      .getAllBookings(
+        {
+          startDate: startOfDay.toISO()!,
+          endDate: endOfDay.toISO()!,
+        },
+        { page: 1, limit: 100 },
+      )
       .subscribe({
-        next: (b) => {
-          this.todayBookings.set(b);
+        next: (res) => {
+          this.todayBookings.set(res.data);
           done();
         },
         error: () => {
@@ -600,9 +603,12 @@ export class DashboardComponent implements OnInit {
     });
 
     this.bookingApi
-      .getAllBookings({ startDate: start.toISO()!, endDate: end.toISO()! })
+      .getAllBookings(
+        { startDate: start.toISO()!, endDate: end.toISO()! },
+        { page: 1, limit: 100 },
+      )
       .subscribe({
-        next: (b) => this.weekBookings.set(b),
+        next: (res) => this.weekBookings.set(res.data),
       });
   }
 

@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import {
   BookingListFilters,
   BookingResponse,
   BookingStatus,
+  DEFAULT_PAGE_SIZE,
 } from '@cabeleleila/contracts';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -13,9 +13,9 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
+import { TableLazyLoadEvent, TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
-import { switchMap } from 'rxjs';
+import { TooltipModule } from 'primeng/tooltip';
 import { SALON_PHONE } from '../../../core/constants/establishment';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
@@ -45,6 +45,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
     TagModule,
     MessageModule,
     ConfirmDialogModule,
+    TooltipModule,
     FormsModule,
     RouterLink,
     SpDatetimePipe,
@@ -71,7 +72,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         optionValue="value"
         placeholder="Todos os status"
         [showClear]="true"
-        (onChange)="applyFilters()"
+        (onChange)="onFilterChange()"
         styleClass="w-full md:w-auto"
       />
       <p-datepicker
@@ -79,69 +80,79 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         selectionMode="range"
         placeholder="Período"
         [showButtonBar]="true"
-        (onSelect)="applyFilters()"
-        (onClear)="applyFilters()"
+        (onSelect)="onFilterChange()"
+        (onClear)="onFilterChange()"
         styleClass="w-full md:w-auto"
       />
     </div>
 
-    @if (bookings() === undefined) {
-      <p class="text-color-secondary">Carregando...</p>
-    } @else if (bookings()!.length === 0) {
-      <p class="text-color-secondary text-center py-6">
-        Nenhum agendamento encontrado.
-      </p>
-    } @else {
-      <p-table
-        [value]="bookings()!"
-        [rowHover]="true"
-        responsiveLayout="stack"
-        breakpoint="768px"
-      >
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Data</th>
-            <th>Serviços</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-booking>
-          <tr>
-            <td>{{ booking.scheduledAt | spDatetime }}</td>
-            <td>{{ serviceNames(booking) }}</td>
-            <td>
-              <p-tag
-                [value]="statusLabel(booking.status)"
-                [severity]="statusSeverity(booking.status)"
-              />
-            </td>
-            <td>
-              <div class="flex gap-1">
-                <a
-                  pButton
-                  icon="pi pi-eye"
+    <p-table
+      [value]="bookings()"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="pageSize"
+      [totalRecords]="total()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [loading]="loading()"
+      (onLazyLoad)="onLazyLoad($event)"
+      [rowHover]="true"
+      responsiveLayout="stack"
+      breakpoint="768px"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+      [showCurrentPageReport]="true"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Data</th>
+          <th>Serviços</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-booking>
+        <tr>
+          <td>{{ booking.scheduledAt | spDatetime }}</td>
+          <td>{{ serviceNames(booking) }}</td>
+          <td>
+            <p-tag
+              [value]="statusLabel(booking.status)"
+              [severity]="statusSeverity(booking.status)"
+            />
+          </td>
+          <td>
+            <div class="flex gap-1">
+              <a
+                pButton
+                icon="pi pi-eye"
+                text
+                rounded
+                size="small"
+                [routerLink]="['/bookings', booking.id]"
+                pTooltip="Ver detalhes"
+              ></a>
+              @if (canCancel(booking)) {
+                <p-button
+                  icon="pi pi-times"
                   text
+                  rounded
+                  severity="danger"
                   size="small"
-                  [routerLink]="['/bookings', booking.id]"
-                  pTooltip="Ver detalhes"
-                ></a>
-                @if (canCancel(booking)) {
-                  <p-button
-                    icon="pi pi-times"
-                    text
-                    severity="danger"
-                    size="small"
-                    (onClick)="confirmCancel(booking)"
-                    pTooltip="Cancelar"
-                  />
-                }
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    }
+                  (onClick)="confirmCancel(booking)"
+                  pTooltip="Cancelar"
+                />
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4" class="text-center py-6 text-color-secondary">
+            Nenhum agendamento encontrado.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
   `,
 })
 export class BookingHistoryComponent {
@@ -153,25 +164,60 @@ export class BookingHistoryComponent {
   filterStatus: BookingStatus | null = null;
   filterRange: Date[] | null = null;
 
-  readonly filters = signal<BookingListFilters>({});
+  readonly loading = signal(false);
+  readonly bookings = signal<BookingResponse[]>([]);
+  readonly total = signal(0);
+  readonly pageSize = DEFAULT_PAGE_SIZE;
 
-  readonly bookings = toSignal(
-    toObservable(this.filters).pipe(
-      switchMap((f) => this.bookingApi.getMyBookings(f)),
-    ),
-  );
+  private currentPage = 1;
+  private currentLimit = DEFAULT_PAGE_SIZE;
 
   readonly statusOptions = Object.values(BookingStatus).map((v) => ({
     label: STATUS_LABELS[v],
     value: v,
   }));
 
-  applyFilters(): void {
+  onLazyLoad(event: TableLazyLoadEvent): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? DEFAULT_PAGE_SIZE;
+    this.currentLimit = rows;
+    this.currentPage = Math.floor(first / rows) + 1;
+    this.reload();
+  }
+
+  onFilterChange(): void {
+    this.currentPage = 1;
+    this.reload();
+  }
+
+  private reload(): void {
+    const filters = this.buildFilters();
+    this.loading.set(true);
+    this.bookingApi
+      .getMyBookings(filters, {
+        page: this.currentPage,
+        limit: this.currentLimit,
+      })
+      .subscribe({
+        next: (res) => {
+          this.bookings.set(res.data);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.bookings.set([]);
+          this.total.set(0);
+          this.loading.set(false);
+        },
+      });
+  }
+
+  private buildFilters(): BookingListFilters {
     const f: BookingListFilters = {};
     if (this.filterStatus) f.status = this.filterStatus;
     if (this.filterRange?.[0]) f.startDate = this.filterRange[0].toISOString();
     if (this.filterRange?.[1]) f.endDate = this.filterRange[1].toISOString();
-    this.filters.set(f);
+    return f;
   }
 
   serviceNames(booking: BookingResponse): string {
@@ -212,7 +258,7 @@ export class BookingHistoryComponent {
           summary: 'Cancelado',
           detail: 'Agendamento cancelado.',
         });
-        this.applyFilters();
+        this.reload();
       },
       error: (err) => {
         const msg: string = err.error?.message ?? 'Erro ao cancelar.';

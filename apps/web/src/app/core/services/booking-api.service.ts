@@ -1,11 +1,13 @@
-import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
 import {
   AvailabilityResponse,
   BookingListFilters,
   BookingResponse,
   BookingSuggestion,
   CreateBookingRequest,
+  PaginatedResponse,
+  PaginationQuery,
   UpdateBookingRequest,
   UpdateBookingServiceStatusRequest,
   UpdateBookingStatusRequest,
@@ -26,15 +28,16 @@ export class BookingApiService {
     return this.http.post<BookingWithSuggestion>(this.base, dto);
   }
 
-  getMyBookings(filters?: BookingListFilters) {
-    return this.http.get<BookingResponse[]>(`${this.base}/me`, {
-      params: toParams(filters),
-    });
+  getMyBookings(filters?: BookingListFilters, pagination?: PaginationQuery) {
+    return this.http.get<PaginatedResponse<BookingResponse>>(
+      `${this.base}/me`,
+      { params: toParams({ ...filters, ...pagination }) },
+    );
   }
 
-  getAllBookings(filters?: BookingListFilters) {
-    return this.http.get<BookingResponse[]>(this.base, {
-      params: toParams(filters),
+  getAllBookings(filters?: BookingListFilters, pagination?: PaginationQuery) {
+    return this.http.get<PaginatedResponse<BookingResponse>>(this.base, {
+      params: toParams({ ...filters, ...pagination }),
     });
   }
 
@@ -95,12 +98,13 @@ export class BookingApiService {
   }
 }
 
-function toParams(filters?: BookingListFilters): HttpParams {
+function toParams(
+  filters?: Record<string, string | number | undefined | null>,
+): HttpParams {
   let params = new HttpParams();
   if (!filters) return params;
-  const f = filters as Record<string, string | undefined>;
-  for (const [k, v] of Object.entries(f)) {
-    if (v !== undefined && v !== null) params = params.set(k, v);
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null) params = params.set(k, String(v));
   }
   return params;
 }

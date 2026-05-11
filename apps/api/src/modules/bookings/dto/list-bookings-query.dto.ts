@@ -1,9 +1,13 @@
 import { BookingListFilters } from '@cabeleleila/contracts';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsEnum, IsOptional } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
 import { BookingStatus } from '../../bookings/entities/booking.entity';
 
-export class ListBookingsQueryDto implements BookingListFilters {
+export class ListBookingsQueryDto
+  extends PaginationQueryDto
+  implements BookingListFilters
+{
   @ApiProperty({
     example: '2026-04-01T00:00:00Z',
     description: 'Data inicial do filtro',

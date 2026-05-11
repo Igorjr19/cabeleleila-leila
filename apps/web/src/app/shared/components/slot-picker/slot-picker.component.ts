@@ -132,7 +132,7 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
                 class="flex align-items-center gap-2 text-xs text-color-secondary"
               >
                 <p-button
-                  label="00:00"
+                  label="hh:mm"
                   severity="primary"
                   outlined
                   size="small"
@@ -144,7 +144,7 @@ const REASON_TOOLTIP: Record<SlotUnavailableReason, string> = {
                 class="flex align-items-center gap-2 text-xs text-color-secondary"
               >
                 <p-button
-                  label="00:00"
+                  label="hh:mm"
                   severity="primary"
                   outlined
                   disabled

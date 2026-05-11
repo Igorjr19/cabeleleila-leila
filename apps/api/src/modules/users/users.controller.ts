@@ -1,6 +1,11 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import {
+  buildPaginatedResponse,
+  resolvePagination,
+} from '../../common/pagination/pagination.dto';
+import { ListCustomersQueryDto } from './dto/list-customers-query.dto';
 import { Role } from './entities/user-role.entity';
 import {
   ApiBearerAuth,
@@ -40,12 +45,26 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Listar clientes do estabelecimento (Admin)',
+    summary: 'Listar clientes do estabelecimento — paginado (Admin)',
     description:
-      'Retorna lista de clientes com estatísticas: total de agendamentos, último agendamento, total gasto e ticket médio.',
+      'Retorna lista paginada de clientes com estatísticas (total de agendamentos, último agendamento, total gasto, ticket médio, média de serviços/agendamento e duração média). Aceita filtro de busca por nome, e-mail ou telefone.',
   })
-  listCustomers(@CurrentUser() user: JwtPayload) {
-    return this.usersService.listCustomersWithStats(user.establishmentId);
+  async listCustomers(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ListCustomersQueryDto,
+  ) {
+    const p = resolvePagination(query);
+    const { data, total, summary } =
+      await this.usersService.listCustomersWithStats(user.establishmentId, {
+        search: query.q,
+        page: p.page,
+        limit: p.limit,
+        skip: p.skip,
+      });
+    return {
+      ...buildPaginatedResponse(data, total, p.page, p.limit),
+      summary,
+    };
   }
 
   @Put('me')

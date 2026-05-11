@@ -2,27 +2,27 @@ import {
   Component,
   EventEmitter,
   Input,
-  OnInit,
   Output,
   inject,
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { DialogModule } from 'primeng/dialog';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { TagModule } from 'primeng/tag';
-import { TextareaModule } from 'primeng/textarea';
-import { TooltipModule } from 'primeng/tooltip';
-import { ConfirmationService, MessageService } from 'primeng/api';
 import {
   CreateServiceRequest,
+  DEFAULT_PAGE_SIZE,
   ServiceResponse,
   UpdateServiceRequest,
 } from '@cabeleleila/contracts';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DialogModule } from 'primeng/dialog';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { TableLazyLoadEvent, TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TextareaModule } from 'primeng/textarea';
+import { TooltipModule } from 'primeng/tooltip';
 import { ServiceApiService } from '../../../core/services/service-api.service';
 import { BrlCurrencyPipe } from '../../../shared/pipes/brl-currency.pipe';
 
@@ -165,65 +165,80 @@ export class ServiceFormComponent {
       <p-button label="Novo Serviço" icon="pi pi-plus" (onClick)="openNew()" />
     </div>
 
-    @if (!services()) {
-      <p class="text-color-secondary">Carregando...</p>
-    } @else {
-      <p-table
-        [value]="services()!"
-        [rowHover]="true"
-        responsiveLayout="stack"
-        breakpoint="768px"
-      >
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Nome</th>
-            <th>Preço</th>
-            <th>Duração</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-s>
-          <tr [style.opacity]="s.active ? 1 : 0.6">
-            <td>{{ s.name }}</td>
-            <td>{{ s.price | brlCurrency }}</td>
-            <td>{{ s.durationMinutes }} min</td>
-            <td>
-              <p-tag
-                [value]="s.active ? 'Ativo' : 'Inativo'"
-                [severity]="s.active ? 'success' : 'secondary'"
+    <p-table
+      [value]="services()"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="pageSize"
+      [totalRecords]="total()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [loading]="loading()"
+      (onLazyLoad)="onLazyLoad($event)"
+      [rowHover]="true"
+      responsiveLayout="stack"
+      breakpoint="768px"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+      [showCurrentPageReport]="true"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Nome</th>
+          <th>Preço</th>
+          <th>Duração</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-s>
+        <tr [style.opacity]="s.active ? 1 : 0.6">
+          <td>{{ s.name }}</td>
+          <td>{{ s.price | brlCurrency }}</td>
+          <td>{{ s.durationMinutes }} min</td>
+          <td>
+            <p-tag
+              [value]="s.active ? 'Ativo' : 'Inativo'"
+              [severity]="s.active ? 'success' : 'secondary'"
+            />
+          </td>
+          <td>
+            <div class="flex gap-1 align-items-center">
+              <p-button
+                [icon]="s.active ? 'pi pi-eye-slash' : 'pi pi-eye'"
+                [pTooltip]="s.active ? 'Desativar' : 'Reativar'"
+                rounded
+                text
+                size="small"
+                (onClick)="toggleActive(s)"
               />
-            </td>
-            <td>
-              <div class="flex gap-1 align-items-center">
-                <p-button
-                  [icon]="s.active ? 'pi pi-eye-slash' : 'pi pi-eye'"
-                  [pTooltip]="s.active ? 'Desativar' : 'Reativar'"
-                  text
-                  size="small"
-                  (onClick)="toggleActive(s)"
-                />
-                <p-button
-                  icon="pi pi-pencil"
-                  pTooltip="Editar"
-                  text
-                  size="small"
-                  (onClick)="openEdit(s)"
-                />
-                <p-button
-                  icon="pi pi-trash"
-                  pTooltip="Excluir"
-                  text
-                  severity="danger"
-                  size="small"
-                  (onClick)="confirmDelete(s)"
-                />
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    }
+              <p-button
+                icon="pi pi-pencil"
+                pTooltip="Editar"
+                rounded
+                text
+                size="small"
+                (onClick)="openEdit(s)"
+              />
+              <p-button
+                icon="pi pi-trash"
+                pTooltip="Excluir"
+                rounded
+                text
+                severity="danger"
+                size="small"
+                (onClick)="confirmDelete(s)"
+              />
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="text-center py-6 text-color-secondary">
+            Nenhum serviço cadastrado.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
 
     <!-- Dialog -->
     <p-dialog
@@ -241,23 +256,47 @@ export class ServiceFormComponent {
     </p-dialog>
   `,
 })
-export class AdminServicesComponent implements OnInit {
+export class AdminServicesComponent {
   private readonly serviceApi = inject(ServiceApiService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
 
-  readonly services = signal<ServiceResponse[] | null>(null);
+  readonly services = signal<ServiceResponse[]>([]);
+  readonly total = signal(0);
+  readonly loading = signal(false);
   readonly formLoading = signal(false);
+  readonly pageSize = DEFAULT_PAGE_SIZE;
+
+  private currentPage = 1;
+  private currentLimit = DEFAULT_PAGE_SIZE;
 
   dialogVisible = false;
   editingService: ServiceResponse | null = null;
 
-  ngOnInit(): void {
+  onLazyLoad(event: TableLazyLoadEvent): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? DEFAULT_PAGE_SIZE;
+    this.currentLimit = rows;
+    this.currentPage = Math.floor(first / rows) + 1;
     this.loadServices();
   }
 
   private loadServices(): void {
-    this.serviceApi.getServices().subscribe((s) => this.services.set(s));
+    this.loading.set(true);
+    this.serviceApi
+      .listServices({ page: this.currentPage, limit: this.currentLimit })
+      .subscribe({
+        next: (res) => {
+          this.services.set(res.data);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.services.set([]);
+          this.total.set(0);
+          this.loading.set(false);
+        },
+      });
   }
 
   openNew(): void {

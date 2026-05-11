@@ -312,58 +312,80 @@ export class BookingsService {
     customerId: string,
     establishmentId: string,
     query?: ListBookingsQueryDto,
-  ): Promise<BookingWithServices[]> {
-    const qb = this.bookingRepo
-      .createQueryBuilder('b')
-      .leftJoinAndSelect('b.bookingServices', 'bs')
-      .leftJoinAndSelect('bs.service', 's')
-      .leftJoinAndSelect('b.customer', 'c')
-      .where('b.establishment_id = :establishmentId', { establishmentId })
-      .andWhere('b.customer_id = :customerId', { customerId })
-      .orderBy('b.scheduled_at', 'DESC');
-
-    if (query?.status) {
-      qb.andWhere('b.status = :status', { status: query.status });
-    }
-    if (query?.startDate) {
-      qb.andWhere('b.scheduled_at >= :startDate', {
-        startDate: query.startDate,
-      });
-    }
-    if (query?.endDate) {
-      qb.andWhere('b.scheduled_at <= :endDate', { endDate: query.endDate });
-    }
-
-    const bookings = await qb.getMany();
-    return this.mapBookingsWithServices(bookings);
+    pagination?: { page: number; limit: number; skip: number },
+  ): Promise<{ data: BookingWithServices[]; total: number }> {
+    return this.queryBookings(query, pagination, (qb) =>
+      qb
+        .andWhere('b.establishment_id = :establishmentId', { establishmentId })
+        .andWhere('b.customer_id = :customerId', { customerId }),
+    );
   }
 
   async listAll(
     establishmentId: string,
     query?: ListBookingsQueryDto,
-  ): Promise<BookingWithServices[]> {
-    const qb = this.bookingRepo
+    pagination?: { page: number; limit: number; skip: number },
+  ): Promise<{ data: BookingWithServices[]; total: number }> {
+    return this.queryBookings(query, pagination, (qb) =>
+      qb.andWhere('b.establishment_id = :establishmentId', { establishmentId }),
+    );
+  }
+
+  private async queryBookings(
+    query: ListBookingsQueryDto | undefined,
+    pagination: { page: number; limit: number; skip: number } | undefined,
+    applyScope: (
+      qb: ReturnType<Repository<Booking>['createQueryBuilder']>,
+    ) => unknown,
+  ): Promise<{ data: BookingWithServices[]; total: number }> {
+    // 1) Page of booking IDs (avoids leftJoin row-multiplication breaking LIMIT)
+    const idQb = this.bookingRepo
       .createQueryBuilder('b')
-      .leftJoinAndSelect('b.bookingServices', 'bs')
-      .leftJoinAndSelect('bs.service', 's')
-      .leftJoinAndSelect('b.customer', 'c')
-      .where('b.establishment_id = :establishmentId', { establishmentId })
-      .orderBy('b.scheduled_at', 'DESC');
+      .select('b.id', 'id')
+      .orderBy('b.scheduled_at', 'DESC')
+      .addOrderBy('b.id', 'DESC');
+
+    applyScope(idQb);
 
     if (query?.status) {
-      qb.andWhere('b.status = :status', { status: query.status });
+      idQb.andWhere('b.status = :status', { status: query.status });
     }
     if (query?.startDate) {
-      qb.andWhere('b.scheduled_at >= :startDate', {
+      idQb.andWhere('b.scheduled_at >= :startDate', {
         startDate: query.startDate,
       });
     }
     if (query?.endDate) {
-      qb.andWhere('b.scheduled_at <= :endDate', { endDate: query.endDate });
+      idQb.andWhere('b.scheduled_at <= :endDate', {
+        endDate: query.endDate,
+      });
     }
 
-    const bookings = await qb.getMany();
-    return this.mapBookingsWithServices(bookings);
+    const total = await idQb.getCount();
+
+    if (pagination) {
+      idQb.offset(pagination.skip).limit(pagination.limit);
+    }
+
+    const rows = await idQb.getRawMany<{ id: string }>();
+    const ids = rows.map((r) => r.id);
+
+    if (ids.length === 0) {
+      return { data: [], total };
+    }
+
+    // 2) Fetch the rich data for those IDs
+    const bookings = await this.bookingRepo
+      .createQueryBuilder('b')
+      .leftJoinAndSelect('b.bookingServices', 'bs')
+      .leftJoinAndSelect('bs.service', 's')
+      .leftJoinAndSelect('b.customer', 'c')
+      .where('b.id IN (:...ids)', { ids })
+      .orderBy('b.scheduled_at', 'DESC')
+      .addOrderBy('b.id', 'DESC')
+      .getMany();
+
+    return { data: this.mapBookingsWithServices(bookings), total };
   }
 
   async findById(

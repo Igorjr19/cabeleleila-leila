@@ -69,7 +69,50 @@ export class UsersService {
 
   async listCustomersWithStats(
     establishmentId: string,
-  ): Promise<CustomerWithStats[]> {
+    options?: {
+      search?: string;
+      page?: number;
+      limit?: number;
+      skip?: number;
+    },
+  ): Promise<{
+    data: CustomerWithStats[];
+    total: number;
+    summary: CustomersSummary;
+  }> {
+    const search = (options?.search ?? '').trim();
+    const hasSearch = search.length > 0;
+    const params: unknown[] = [establishmentId, Role.CUSTOMER];
+    let searchClause = '';
+    if (hasSearch) {
+      params.push(`%${search.toLowerCase()}%`);
+      searchClause = `AND (
+        LOWER(u.name) LIKE $${params.length}
+        OR LOWER(u.email) LIKE $${params.length}
+        OR LOWER(COALESCE(u.phone, '')) LIKE $${params.length}
+      )`;
+    }
+
+    const countRow: Array<{ total: number }> = await this.userRoleRepo.query(
+      `
+      SELECT COUNT(DISTINCT u.id)::int AS total
+      FROM users u
+      INNER JOIN user_roles ur ON ur.user_id = u.id
+      WHERE ur.establishment_id = $1 AND ur.role = $2 ${searchClause}
+      `,
+      params,
+    );
+    const total = countRow[0]?.total ?? 0;
+
+    // Pagination params at end
+    const limit = options?.limit;
+    const skip = options?.skip;
+    let limitClause = '';
+    if (limit !== undefined && skip !== undefined) {
+      params.push(limit, skip);
+      limitClause = `LIMIT $${params.length - 1} OFFSET $${params.length}`;
+    }
+
     // Use a CTE to pre-aggregate per-booking metrics so customer-level averages
     // don't get inflated by the booking_services join cardinality.
     const rows: RawCustomerStatsRow[] = await this.userRoleRepo.query(
@@ -122,14 +165,15 @@ export class UsersService {
       LEFT JOIN booking_metrics bm
         ON bm.customer_id = u.id
         AND bm.establishment_id = ur.establishment_id
-      WHERE ur.establishment_id = $1 AND ur.role = $2
+      WHERE ur.establishment_id = $1 AND ur.role = $2 ${searchClause}
       GROUP BY u.id, u.name, u.email, u.phone
       ORDER BY MAX(bm.scheduled_at) DESC NULLS LAST
+      ${limitClause}
       `,
-      [establishmentId, Role.CUSTOMER],
+      params,
     );
 
-    return rows.map((r) => {
+    const data = rows.map((r) => {
       const total = parseInt(String(r.totalBookings ?? '0'), 10);
       const spent = parseFloat(String(r.totalSpent ?? '0'));
       return {
@@ -149,7 +193,73 @@ export class UsersService {
         averageDurationMinutes: parseFloat(String(r.avgDurationMinutes ?? '0')),
       };
     });
+
+    // Aggregated global summary (not affected by search/pagination — independent query)
+    const summaryRow: RawCustomersSummaryRow[] = await this.userRoleRepo.query(
+      `
+      WITH bm AS (
+        SELECT
+          b.customer_id,
+          b.establishment_id,
+          b.status,
+          b.scheduled_at,
+          COALESCE(SUM(bs.price_at_booking) FILTER (WHERE bs.status != 'DECLINED'), 0)::numeric AS price_total
+        FROM bookings b
+        LEFT JOIN booking_services bs ON bs.booking_id = b.id
+        GROUP BY b.id
+      ),
+      customer_agg AS (
+        SELECT
+          u.id AS user_id,
+          MAX(bm.scheduled_at) FILTER (WHERE bm.status != 'CANCELLED') AS last_booking_at,
+          COUNT(bm.customer_id) FILTER (WHERE bm.status != 'CANCELLED')::int AS bookings_count,
+          COALESCE(SUM(bm.price_total) FILTER (WHERE bm.status = 'FINISHED'), 0)::numeric AS spent
+        FROM users u
+        INNER JOIN user_roles ur ON ur.user_id = u.id
+        LEFT JOIN bm ON bm.customer_id = u.id AND bm.establishment_id = ur.establishment_id
+        WHERE ur.establishment_id = $1 AND ur.role = $2
+        GROUP BY u.id
+      )
+      SELECT
+        COUNT(*)::int AS "totalCustomers",
+        COUNT(*) FILTER (WHERE bookings_count > 0)::int AS "activeCustomers",
+        COUNT(*) FILTER (
+          WHERE last_booking_at IS NOT NULL
+          AND last_booking_at < NOW() - INTERVAL '30 days'
+        )::int AS "inactive30Days",
+        COALESCE(
+          SUM(spent) FILTER (WHERE bookings_count > 0)
+          / NULLIF(SUM(bookings_count) FILTER (WHERE bookings_count > 0), 0),
+          0
+        )::numeric AS "averageTicket"
+      FROM customer_agg
+      `,
+      [establishmentId, Role.CUSTOMER],
+    );
+
+    const s: RawCustomersSummaryRow = summaryRow[0] ?? {
+      totalCustomers: 0,
+      activeCustomers: 0,
+      inactive30Days: 0,
+      averageTicket: 0,
+    };
+
+    const summary: CustomersSummary = {
+      totalCustomers: Number(s.totalCustomers ?? 0),
+      activeCustomers: Number(s.activeCustomers ?? 0),
+      inactive30Days: Number(s.inactive30Days ?? 0),
+      averageTicket: parseFloat(String(s.averageTicket ?? '0')),
+    };
+
+    return { data, total, summary };
   }
+}
+
+export interface CustomersSummary {
+  totalCustomers: number;
+  activeCustomers: number;
+  inactive30Days: number;
+  averageTicket: number;
 }
 
 interface RawCustomerStatsRow {
@@ -162,6 +272,13 @@ interface RawCustomerStatsRow {
   totalSpent: string | number;
   avgServicesPerBooking: string | number;
   avgDurationMinutes: string | number;
+}
+
+interface RawCustomersSummaryRow {
+  totalCustomers: string | number;
+  activeCustomers: string | number;
+  inactive30Days: string | number;
+  averageTicket: string | number;
 }
 
 export interface CustomerWithStats {

@@ -1,5 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DEFAULT_PAGE_SIZE } from '@cabeleleila/contracts';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -8,7 +9,8 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
-import { TableModule } from 'primeng/table';
+import { TableLazyLoadEvent, TableModule } from 'primeng/table';
+import { TooltipModule } from 'primeng/tooltip';
 import {
   TimeBlock,
   TimeBlocksApiService,
@@ -28,6 +30,7 @@ import { toUtcISO } from '../../../shared/utils/date.utils';
     InputTextModule,
     MessageModule,
     TableModule,
+    TooltipModule,
     ConfirmDialogModule,
     SpDatetimePipe,
   ],
@@ -48,45 +51,55 @@ import { toUtcISO } from '../../../shared/utils/date.utils';
       />
     </div>
 
-    @if (blocks() === null) {
-      <p class="text-color-secondary">Carregando...</p>
-    } @else if (blocks()!.length === 0) {
-      <p class="text-color-secondary text-center py-6">
-        Nenhum bloqueio cadastrado. Clique em "Bloquear horário" para criar.
-      </p>
-    } @else {
-      <p-table
-        [value]="blocks()!"
-        [rowHover]="true"
-        responsiveLayout="stack"
-        breakpoint="768px"
-      >
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Início</th>
-            <th>Fim</th>
-            <th>Motivo</th>
-            <th>Ações</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-b>
-          <tr>
-            <td>{{ b.startsAt | spDatetime }}</td>
-            <td>{{ b.endsAt | spDatetime }}</td>
-            <td>{{ b.reason || '—' }}</td>
-            <td>
-              <p-button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                size="small"
-                (onClick)="confirmRemove(b)"
-              />
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    }
+    <p-table
+      [value]="blocks()"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="pageSize"
+      [totalRecords]="total()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [loading]="loading()"
+      (onLazyLoad)="onLazyLoad($event)"
+      [rowHover]="true"
+      responsiveLayout="stack"
+      breakpoint="768px"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+      [showCurrentPageReport]="true"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Início</th>
+          <th>Fim</th>
+          <th>Motivo</th>
+          <th>Ações</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-b>
+        <tr>
+          <td>{{ b.startsAt | spDatetime }}</td>
+          <td>{{ b.endsAt | spDatetime }}</td>
+          <td>{{ b.reason || '—' }}</td>
+          <td>
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              rounded
+              text
+              size="small"
+              pTooltip="Remover"
+              (onClick)="confirmRemove(b)"
+            />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4" class="text-center py-6 text-color-secondary">
+            Nenhum bloqueio cadastrado. Clique em "Bloquear horário" para criar.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
 
     <p-dialog
       header="Bloquear horário"
@@ -148,29 +161,50 @@ import { toUtcISO } from '../../../shared/utils/date.utils';
     </p-dialog>
   `,
 })
-export class AdminTimeBlocksComponent implements OnInit {
+export class AdminTimeBlocksComponent {
   private readonly api = inject(TimeBlocksApiService);
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
 
-  readonly blocks = signal<TimeBlock[] | null>(null);
+  readonly blocks = signal<TimeBlock[]>([]);
+  readonly total = signal(0);
+  readonly loading = signal(false);
   readonly saving = signal(false);
   readonly formError = signal<string | null>(null);
+  readonly pageSize = DEFAULT_PAGE_SIZE;
+
+  private currentPage = 1;
+  private currentLimit = DEFAULT_PAGE_SIZE;
 
   dialogVisible = false;
   startsAt: Date | null = null;
   endsAt: Date | null = null;
   reason = '';
 
-  ngOnInit(): void {
+  onLazyLoad(event: TableLazyLoadEvent): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? DEFAULT_PAGE_SIZE;
+    this.currentLimit = rows;
+    this.currentPage = Math.floor(first / rows) + 1;
     this.load();
   }
 
   load(): void {
-    this.api.list().subscribe({
-      next: (b) => this.blocks.set(b),
-      error: () => this.blocks.set([]),
-    });
+    this.loading.set(true);
+    this.api
+      .listPaginated({ page: this.currentPage, limit: this.currentLimit })
+      .subscribe({
+        next: (res) => {
+          this.blocks.set(res.data);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.blocks.set([]);
+          this.total.set(0);
+          this.loading.set(false);
+        },
+      });
   }
 
   openDialog(): void {

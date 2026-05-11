@@ -1,21 +1,20 @@
 import { Component, inject, signal } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   BookingListFilters,
   BookingResponse,
   BookingStatus,
+  DEFAULT_PAGE_SIZE,
 } from '@cabeleleila/contracts';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
+import { TableLazyLoadEvent, TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
-import { switchMap } from 'rxjs';
 import { BookingApiService } from '../../../core/services/booking-api.service';
 import { SpDatetimePipe } from '../../../shared/pipes/sp-datetime.pipe';
 
@@ -62,7 +61,7 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         optionValue="value"
         placeholder="Todos os status"
         [showClear]="true"
-        (onChange)="applyFilters()"
+        (onChange)="onFilterChange()"
         styleClass="w-full md:w-auto"
       />
       <p-datepicker
@@ -70,101 +69,109 @@ const STATUS_SEVERITY: Record<BookingStatus, string> = {
         selectionMode="range"
         placeholder="Período"
         [showButtonBar]="true"
-        (onSelect)="applyFilters()"
-        (onClear)="applyFilters()"
+        (onSelect)="onFilterChange()"
+        (onClear)="onFilterChange()"
         styleClass="w-full md:w-auto"
       />
     </div>
 
-    @if (bookings() === undefined) {
-      <p class="text-color-secondary">Carregando...</p>
-    } @else if (bookings()!.length === 0) {
-      <p class="text-color-secondary text-center py-6">
-        Nenhum agendamento encontrado.
-      </p>
-    } @else {
-      <p-table
-        [value]="bookings()!"
-        [rowHover]="true"
-        responsiveLayout="stack"
-        breakpoint="768px"
-      >
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Data</th>
-            <th>Cliente</th>
-            <th>Serviços</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-b>
-          <tr>
-            <td>{{ b.scheduledAt | spDatetime }}</td>
-            <td>{{ b.customerName }}</td>
-            <td>{{ b.services.length }} serviço(s)</td>
-            <td>
-              <p-tag
-                [value]="statusLabel(b.status)"
-                [severity]="statusSeverity(b.status)"
-              />
-            </td>
-            <td>
-              <div class="flex gap-1 align-items-center">
-                <a
-                  pButton
-                  icon="pi pi-eye"
+    <p-table
+      [value]="bookings()"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="pageSize"
+      [totalRecords]="total()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [loading]="loading()"
+      (onLazyLoad)="onLazyLoad($event)"
+      [rowHover]="true"
+      responsiveLayout="stack"
+      breakpoint="768px"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+      [showCurrentPageReport]="true"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Data</th>
+          <th>Cliente</th>
+          <th>Serviços</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-b>
+        <tr>
+          <td>{{ b.scheduledAt | spDatetime }}</td>
+          <td>{{ b.customerName }}</td>
+          <td>{{ b.services.length }} serviço(s)</td>
+          <td>
+            <p-tag
+              [value]="statusLabel(b.status)"
+              [severity]="statusSeverity(b.status)"
+            />
+          </td>
+          <td>
+            <div class="flex gap-1 align-items-center">
+              <a
+                pButton
+                icon="pi pi-eye"
+                rounded
+                text
+                size="small"
+                pTooltip="Ver detalhes"
+                tooltipPosition="top"
+                [routerLink]="['/bookings', b.id]"
+              ></a>
+              @if (b.status === 'PENDING') {
+                <p-button
+                  icon="pi pi-check"
+                  severity="success"
                   rounded
                   text
                   size="small"
-                  pTooltip="Ver detalhes"
+                  pTooltip="Confirmar"
                   tooltipPosition="top"
-                  [routerLink]="['/bookings', b.id]"
-                ></a>
-                @if (b.status === 'PENDING') {
-                  <p-button
-                    icon="pi pi-check"
-                    severity="success"
-                    rounded
-                    text
-                    size="small"
-                    pTooltip="Confirmar"
-                    tooltipPosition="top"
-                    [loading]="busyId() === b.id"
-                    (onClick)="confirm(b)"
-                  />
-                }
-                @if (b.status === 'CONFIRMED') {
-                  <p-button
-                    icon="pi pi-flag-fill"
-                    severity="secondary"
-                    rounded
-                    text
-                    size="small"
-                    pTooltip="Finalizar"
-                    tooltipPosition="top"
-                    [loading]="busyId() === b.id"
-                    (onClick)="confirmFinish(b)"
-                  />
-                }
-                @if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
-                  <p-button
-                    icon="pi pi-times"
-                    severity="danger"
-                    rounded
-                    text
-                    size="small"
-                    pTooltip="Cancelar"
-                    tooltipPosition="top"
-                    (onClick)="confirmCancel(b)"
-                  />
-                }
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    }
+                  [loading]="busyId() === b.id"
+                  (onClick)="confirm(b)"
+                />
+              }
+              @if (b.status === 'CONFIRMED') {
+                <p-button
+                  icon="pi pi-flag-fill"
+                  severity="secondary"
+                  rounded
+                  text
+                  size="small"
+                  pTooltip="Finalizar"
+                  tooltipPosition="top"
+                  [loading]="busyId() === b.id"
+                  (onClick)="confirmFinish(b)"
+                />
+              }
+              @if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
+                <p-button
+                  icon="pi pi-times"
+                  severity="danger"
+                  rounded
+                  text
+                  size="small"
+                  pTooltip="Cancelar"
+                  tooltipPosition="top"
+                  (onClick)="confirmCancel(b)"
+                />
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="text-center py-6 text-color-secondary">
+            Nenhum agendamento encontrado.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
   `,
 })
 export class AdminBookingsComponent {
@@ -175,26 +182,63 @@ export class AdminBookingsComponent {
   filterStatus: BookingStatus | null = null;
   filterRange: Date[] | null = null;
 
-  readonly filters = signal<BookingListFilters>({});
   readonly busyId = signal<string | null>(null);
+  readonly loading = signal(false);
+  readonly bookings = signal<BookingResponse[]>([]);
+  readonly total = signal(0);
+  readonly pageSize = DEFAULT_PAGE_SIZE;
 
-  readonly bookings = toSignal(
-    toObservable(this.filters).pipe(
-      switchMap((f) => this.bookingApi.getAllBookings(f)),
-    ),
-  );
+  private currentPage = 1;
+  private currentLimit = DEFAULT_PAGE_SIZE;
 
   readonly statusOptions = Object.values(BookingStatus).map((v) => ({
     label: STATUS_LABELS[v],
     value: v,
   }));
 
-  applyFilters(): void {
+  /** Triggered by PrimeNG table when user changes page/sort. */
+  onLazyLoad(event: TableLazyLoadEvent): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? DEFAULT_PAGE_SIZE;
+    this.currentLimit = rows;
+    this.currentPage = Math.floor(first / rows) + 1;
+    this.reload();
+  }
+
+  /** Triggered by filter inputs — resets to first page. */
+  onFilterChange(): void {
+    this.currentPage = 1;
+    this.reload();
+  }
+
+  private reload(): void {
+    const filters = this.buildFilters();
+    this.loading.set(true);
+    this.bookingApi
+      .getAllBookings(filters, {
+        page: this.currentPage,
+        limit: this.currentLimit,
+      })
+      .subscribe({
+        next: (res) => {
+          this.bookings.set(res.data);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.bookings.set([]);
+          this.total.set(0);
+          this.loading.set(false);
+        },
+      });
+  }
+
+  private buildFilters(): BookingListFilters {
     const f: BookingListFilters = {};
     if (this.filterStatus) f.status = this.filterStatus;
     if (this.filterRange?.[0]) f.startDate = this.filterRange[0].toISOString();
     if (this.filterRange?.[1]) f.endDate = this.filterRange[1].toISOString();
-    this.filters.set(f);
+    return f;
   }
 
   confirm(booking: BookingResponse): void {
@@ -249,7 +293,7 @@ export class AdminBookingsComponent {
             summary: successMessage,
             detail: booking.customerName,
           });
-          this.applyFilters();
+          this.reload();
         },
         error: (err) => {
           this.busyId.set(null);
@@ -273,7 +317,7 @@ export class AdminBookingsComponent {
           summary: 'Agendamento cancelado',
           detail: booking.customerName,
         });
-        this.applyFilters();
+        this.reload();
       },
       error: (err) => {
         this.busyId.set(null);

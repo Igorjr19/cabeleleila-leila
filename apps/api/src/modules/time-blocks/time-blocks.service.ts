@@ -37,13 +37,24 @@ export class TimeBlocksService {
     return this.repo.save(block);
   }
 
-  async listUpcoming(establishmentId: string): Promise<TimeBlock[]> {
-    return this.repo
+  async listUpcoming(
+    establishmentId: string,
+    pagination?: { skip: number; limit: number },
+  ): Promise<{ data: TimeBlock[]; total: number }> {
+    const qb = this.repo
       .createQueryBuilder('tb')
       .where('tb.establishment_id = :est', { est: establishmentId })
       .andWhere('tb.ends_at > NOW()')
-      .orderBy('tb.starts_at', 'ASC')
-      .getMany();
+      .orderBy('tb.starts_at', 'ASC');
+
+    const total = await qb.getCount();
+
+    if (pagination) {
+      qb.skip(pagination.skip).take(pagination.limit);
+    }
+
+    const data = await qb.getMany();
+    return { data, total };
   }
 
   async findInRange(

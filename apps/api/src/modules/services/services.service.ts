@@ -37,13 +37,19 @@ export class ServicesService {
   async findByEstablishment(
     establishmentId: string,
     includeInactive = false,
-  ): Promise<Service[]> {
-    return this.serviceRepo.find({
-      where: includeInactive
-        ? { establishmentId }
-        : { establishmentId, active: true },
+    pagination?: { skip: number; limit: number },
+  ): Promise<{ data: Service[]; total: number }> {
+    const where = includeInactive
+      ? { establishmentId }
+      : { establishmentId, active: true };
+
+    const [data, total] = await this.serviceRepo.findAndCount({
+      where,
       order: { name: 'ASC' },
+      skip: pagination?.skip,
+      take: pagination?.limit,
     });
+    return { data, total };
   }
 
   async setActive(

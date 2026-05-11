@@ -21,6 +21,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import {
+  buildPaginatedResponse,
+  resolvePagination,
+} from '../../common/pagination/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Role } from '../users/entities/user-role.entity';
@@ -74,27 +78,29 @@ export class BookingsController {
   }
 
   @Get('me')
-  @ApiOperation({ summary: 'Listar meus agendamentos' })
+  @ApiOperation({ summary: 'Listar meus agendamentos (paginado)' })
   @ApiResponse({
     status: 200,
     description: 'Agendamentos do cliente autenticado',
-    type: [BookingResponseDto],
   })
   async listMyBookings(
     @CurrentUser() user: JwtPayload,
     @Query() query: ListBookingsQueryDto,
-  ): Promise<BookingResponseDto[]> {
-    const results = await this.bookingsService.listByCustomer(
+  ) {
+    const p = resolvePagination(query);
+    const { data, total } = await this.bookingsService.listByCustomer(
       user.sub,
       user.establishmentId,
       query,
+      p,
     );
-    return results.map((result) => ({
+    const dto = data.map((result) => ({
       ...result,
       scheduledAt: result.scheduledAt.toISOString(),
       createdAt: result.createdAt.toISOString(),
       services: result.services || [],
     }));
+    return buildPaginatedResponse(dto, total, p.page, p.limit);
   }
 
   @Get('availability')
@@ -206,17 +212,20 @@ export class BookingsController {
   async listAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: ListBookingsQueryDto,
-  ): Promise<BookingResponseDto[]> {
-    const results = await this.bookingsService.listAll(
+  ) {
+    const p = resolvePagination(query);
+    const { data, total } = await this.bookingsService.listAll(
       user.establishmentId,
       query,
+      p,
     );
-    return results.map((result) => ({
+    const dto = data.map((result) => ({
       ...result,
       scheduledAt: result.scheduledAt.toISOString(),
       createdAt: result.createdAt.toISOString(),
       services: result.services || [],
     }));
+    return buildPaginatedResponse(dto, total, p.page, p.limit);
   }
 
   @Get(':id')

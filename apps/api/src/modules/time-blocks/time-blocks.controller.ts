@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -17,6 +18,11 @@ import {
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import {
+  PaginationQueryDto,
+  buildPaginatedResponse,
+  resolvePagination,
+} from '../../common/pagination/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Role } from '../users/entities/user-role.entity';
@@ -39,9 +45,17 @@ export class TimeBlocksController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar bloqueios futuros (Admin)' })
-  list(@CurrentUser() user: JwtPayload) {
-    return this.timeBlocksService.listUpcoming(user.establishmentId);
+  @ApiOperation({ summary: 'Listar bloqueios futuros — paginado (Admin)' })
+  async list(
+    @CurrentUser() user: JwtPayload,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    const p = resolvePagination(pagination);
+    const { data, total } = await this.timeBlocksService.listUpcoming(
+      user.establishmentId,
+      { skip: p.skip, limit: p.limit },
+    );
+    return buildPaginatedResponse(data, total, p.page, p.limit);
   }
 
   @Delete(':id')

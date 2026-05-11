@@ -22,7 +22,8 @@ const makeService = (overrides: Partial<Service> = {}): Service =>
 describe('ServicesService', () => {
   let service: ServicesService;
 
-  const mockRepo = {
+  const mockRepo: Record<string, jest.Mock> = {
+    findAndCount: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
     find: jest.fn(),
@@ -232,17 +233,18 @@ describe('ServicesService', () => {
   // ── findByEstablishment() ──────────────────────────────────────────────────
 
   describe('findByEstablishment()', () => {
-    it('retorna serviços ordenados por nome', async () => {
+    it('retorna serviços ordenados por nome + total', async () => {
       const svcs = [
         makeService({ name: 'Escova' }),
         makeService({ name: 'Corte' }),
       ];
-      mockRepo.find.mockResolvedValue(svcs);
+      mockRepo.findAndCount.mockResolvedValue([svcs, 2]);
 
       const result = await service.findByEstablishment(EST_ID);
 
-      expect(result).toHaveLength(2);
-      expect(mockRepo.find).toHaveBeenCalledWith(
+      expect(result.data).toHaveLength(2);
+      expect(result.total).toBe(2);
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
           order: { name: 'ASC' },
         }),
@@ -250,11 +252,12 @@ describe('ServicesService', () => {
     });
 
     it('retorna lista vazia quando não há serviços', async () => {
-      mockRepo.find.mockResolvedValue([]);
+      mockRepo.findAndCount.mockResolvedValue([[], 0]);
 
       const result = await service.findByEstablishment(EST_ID);
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 });

@@ -1,5 +1,6 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { PaginatedResponse, PaginationQuery } from '@cabeleleila/contracts';
 import { environment } from '../../../environments/environment';
 
 export interface UserProfile {
@@ -27,9 +28,22 @@ export class UserApiService {
     return this.http.put<UserProfile>(`${this.base}/me`, dto);
   }
 
-  listCustomers() {
-    return this.http.get<CustomerWithStats[]>(`${this.base}/customers`);
+  listCustomers(options?: { search?: string } & PaginationQuery) {
+    let params = new HttpParams();
+    if (options?.search) params = params.set('q', options.search);
+    if (options?.page) params = params.set('page', String(options.page));
+    if (options?.limit) params = params.set('limit', String(options.limit));
+    return this.http.get<
+      PaginatedResponse<CustomerWithStats> & { summary: CustomersSummary }
+    >(`${this.base}/customers`, { params });
   }
+}
+
+export interface CustomersSummary {
+  totalCustomers: number;
+  activeCustomers: number;
+  inactive30Days: number;
+  averageTicket: number;
 }
 
 export interface CustomerWithStats {
