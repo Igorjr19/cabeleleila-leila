@@ -14,6 +14,7 @@
     "start:api": "pnpm --filter api start:prod",
     "test:api": "pnpm --filter api test",
     "lint:api": "pnpm --filter api lint",
+    "seed:dev": "pnpm --filter api seed:dev",
     "dev:web": "pnpm --filter web start",
     "build:web": "pnpm --filter web build",
     "lint:web": "pnpm --filter web lint",
